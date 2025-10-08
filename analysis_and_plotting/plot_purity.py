@@ -12,9 +12,7 @@ plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
 
 rng = np.random.default_rng(42)
 
-ASSEMBLY = "GRCh38"
-
-mutations = pd.read_csv(f"{ASSEMBLY}.filtered.tsv", sep="\t", dtype={"sample_id": str})
+mutations = pd.read_csv(snakemake.input.mutations, sep="\t", dtype={"sample_id": str})
 
 for c in mutations.columns:
    if np.any(mutations[c].isna()): print (c)
@@ -54,12 +52,9 @@ for i, (val, ax) in enumerate(zip(("AL", "AP"), (ax1, ax2))):
         y=mutations[f"untransmitted_{val}"].values,
         alternative="greater",
     )
-    print (stat, p)
 
-    # diffs = tidy.groupby(["trid", "sample_id", "genotype"]).agg(diff=("value", lambda ap: np.diff(ap)[0]))["diff"]
     a, b = mutations[f"precursor_{val}"].values, mutations[f"untransmitted_{val}"].values
     diffs = a - b
-
 
     bin_edges = np.linspace(min(diffs), max(diffs), 50)
 
@@ -77,16 +72,11 @@ for i, (val, ax) in enumerate(zip(("AL", "AP"), (ax1, ax2))):
     ax.add_patch(rect1)
     ax.add_patch(rect2)
 
-    # ax.set_title("p = {:0.2e}".format(p))
     ax.set_xlabel("Difference between allele lengths..." if val == "AL" else "...and allele purities")
-    # ax.set_xticks(ind[::20])
-    # ax.set_xticklabels(v_edges[1::20])
-    # print (min(diffs))
     sns.despine(ax=ax)
-    # ax.set_xscale("log")
     ax.set_yscale("log")
 
 ax1.set_ylabel(f"Number of TR DNMs")
 
 f.tight_layout()
-f.savefig(f"length_purity.png", dpi=200)
+f.savefig(snakemake.output.png, dpi=200)

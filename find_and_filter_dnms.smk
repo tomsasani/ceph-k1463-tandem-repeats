@@ -119,7 +119,7 @@ SMP2SUFF = dict(zip(ped["sample_id"], ped["suffix"]))
 CHILDREN = ped[(ped["paternal_id"] != "missing") & (~ped["paternal_id"].isin(["2281", "2214"]))]["sample_id"].to_list()
 ALL_SAMPLES = ped["sample_id"].to_list()
 
-ASSEMBLIES = ["GRCh38"]
+ASSEMBLIES = ["GRCh38", "CHM13v2"]
 USE_NEW_BAMS = ["TOPUP"]
 
 rule all:

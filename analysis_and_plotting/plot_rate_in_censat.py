@@ -31,12 +31,10 @@ plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
 
 # define some global variables we'll access for filtering
-PER_HAPLOTYPE = True
 
 # define the assembly we're sourcing our DNMs from
-ASSEMBLY = "CHM13v2"
 
-mutations = pd.read_csv(f"{ASSEMBLY}.filtered.tsv", sep="\t", dtype={"sample_id": str})
+mutations = pd.read_csv(snakemake.input.mutations, sep="\t", dtype={"sample_id": str})
 
 # get sample IDs so we can filter the denominator files
 sample_ids = mutations["sample_id"].unique()
@@ -47,14 +45,13 @@ orig2alt = {v:k for k,v in alt2orig.items()}
 
 # read in per-sample denominators
 denoms = []
-for fh in glob.glob(f"csv/denominators/*.{ASSEMBLY}.v4.0.denominator.tsv"):
+for fh in snakemake.input.denominators:
     df = pd.read_csv(fh, sep="\t", dtype={"sample_id": str})    
     denoms.append(df)
 denoms = pd.concat(denoms)
 
-print (denoms["sample_id"].unique())
 
-if PER_HAPLOTYPE:
+if snakemake.params.rate_per_haplotype:
     denoms["denominator"] *= 2
 denoms = denoms[denoms["sample_id"].isin(sample_ids)]
 
@@ -69,12 +66,9 @@ per_sample_denoms = (
 per_sample_mutation_counts = (
     mutations.groupby(group_cols).size().reset_index().rename(columns={0: "numerator"})
 )
-print (per_sample_mutation_counts)
-per_sample_rates = per_sample_mutation_counts.merge(
-    per_sample_denoms,
-    # left_on=["sample_id", "overlaps_censat"],
-    # right_on=["sample_id", "overlaps_censat"],
-)
+
+per_sample_rates = per_sample_mutation_counts.merge(per_sample_denoms)
+
 per_sample_rates["rate"] = per_sample_rates["numerator"] / per_sample_rates["denominator"]
 per_sample_rates["ci_lo"] = per_sample_rates.apply(
     lambda row: calculate_poisson_ci(row["numerator"], row["denominator"])[0],
@@ -97,7 +91,6 @@ per_sample_rates["overlaps_censat"] = per_sample_rates["overlaps_censat"].replac
         "bsat": r"$\beta$",
     }
 )
-
 
 f, ax = plt.subplots(figsize=(8, 6))
 per_sample_rates = per_sample_rates.sort_values("rate")
@@ -145,16 +138,4 @@ ax.set_ylabel("Mutation rate (per locus, per haplotype\nper generation) +/- 95% 
 ax.set_xlabel("CenSat overlap")
 sns.despine(ax=ax)
 f.tight_layout()
-f.savefig("censat.png", dpi=200)
-
-# chi-square test
-totals = per_sample_rates.groupby("overlaps_censat").agg(total_denom=("denominator", "sum"), total_num=("numerator", "sum")).reset_index()
-a_back, a_fore = totals[totals["overlaps_censat"] == 0].values[0][1:]
-b_back, b_fore = totals[totals["overlaps_censat"] == 1].values[0][1:]
-
-a_back -= a_fore
-b_back -= b_fore
-
-print (a_fore, b_fore, a_back, b_back)
-
-print (ss.chi2_contingency([[a_fore, b_fore], [a_back, b_back]]))
+f.savefig(snakemake.output.png, dpi=200)

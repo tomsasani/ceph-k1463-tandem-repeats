@@ -1,5 +1,4 @@
 import pandas as pd
-import glob
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
@@ -9,6 +8,7 @@ from decimal import Decimal
 plt.rc("font", size=12)
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
+
 
 def get_motif_types(row: pd.Series):
     if row["max_motiflen"] == 1:
@@ -32,12 +32,9 @@ def is_parent_het(row: pd.Series, with_dnm: bool = True):
 
 rng = np.random.default_rng(42)
 
-ASSEMBLY = "CHM13v2"
-
-mutations = pd.read_csv(f"{ASSEMBLY}.filtered.tsv", sep="\t", dtype={"sample_id": str})
+mutations = pd.read_csv(snakemake.input.mutations, sep="\t", dtype={"sample_id": str})
 
 mutations = mutations[(mutations["phase"] != "unknown") & (~mutations["#chrom"].isin(["chrX", "chrY"]))]
-
 
 mutations["TR type"] = mutations.apply(lambda row: get_motif_types(row), axis=1)
 
@@ -107,4 +104,4 @@ for mi, (motif, motif_df) in enumerate(tidy.groupby("TR type")):
     
 axarr[0].legend(title="Parental genotype", shadow=True)
 f.tight_layout()
-f.savefig("heterozygote_effect.png", dpi=200)
+f.savefig(snakemake.output.png, dpi=200)

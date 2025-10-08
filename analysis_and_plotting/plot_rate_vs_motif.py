@@ -30,15 +30,8 @@ plt.rc("font", size=14)
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
 
-# define some global variables we'll access for filtering
-PER_HAPLOTYPE = True
-REMOVE_COMPLEX = False
 
-# define the assembly we're sourcing our DNMs from
-ASSEMBLY = "GRCh38"
-USE_NEW_BAM = "TOPUP"
-
-mutations = pd.read_csv(f"{ASSEMBLY}.filtered.tsv", sep="\t", dtype={"sample_id": str})
+mutations = pd.read_csv(snakemake.input.mutations, sep="\t", dtype={"sample_id": str})
 
 # get sample IDs so we can filter the denominator files
 sample_ids = mutations["sample_id"].unique()
@@ -48,17 +41,14 @@ orig2alt = {v:k for k,v in alt2orig.items()}
 
 # read in per-sample denominators
 denoms = []
-for fh in glob.glob(f"csv/denominators/*.{ASSEMBLY}.{USE_NEW_BAM}.denominator.tsv"):
+for fh in snakemake.input.denominators:
     df = pd.read_csv(fh, sep="\t", dtype={"sample_id": str})    
     denoms.append(df)
 denoms = pd.concat(denoms)
-if PER_HAPLOTYPE:
+
+if snakemake.params.rate_per_haplotype:
     denoms["denominator"] *= 2
 denoms = denoms[denoms["sample_id"].isin(sample_ids)]
-
-if REMOVE_COMPLEX:
-    denoms = denoms[denoms["is_complex"] == False]
-    mutations = mutations[mutations["is_complex"] == False]
 
 
 # figure out the total number of BP affected by TRs
@@ -142,7 +132,7 @@ def plot_mutation_rate_vs(
         .agg({"denominator": "sum"})
         .reset_index()
     )
-    
+
     per_col_mutation_counts = (
         mutations.groupby(colname)
         .size()
@@ -151,7 +141,6 @@ def plot_mutation_rate_vs(
     )
     per_col_rates = per_col_mutation_counts.merge(per_col_denoms)
 
-
     if colname == "reflen_bin":
         per_col_rates["reflen_bin"] = per_col_rates["reflen_bin"].apply(lambda b: int(b.split(",")[0].lstrip("()")))
         per_col_rates = per_col_rates.sort_values("reflen_bin")
@@ -159,9 +148,9 @@ def plot_mutation_rate_vs(
         total_denom = per_col_rates["denominator"].sum()
         per_col_rates["denominator_frac"] = per_col_rates["denominator"] / total_denom
         per_col_rates["denominator_cumsum"] = np.cumsum(per_col_rates["denominator_frac"])
-        
+
         per_col_rates = per_col_rates[per_col_rates["denominator_cumsum"] < 0.97]
-    
+
     per_col_rates["rate"] = per_col_rates["numerator"] / per_col_rates["denominator"]
     per_col_rates["ci_lo"] = per_col_rates.apply(
         lambda row: calculate_poisson_ci(row["numerator"], row["denominator"])[0],
@@ -185,7 +174,7 @@ def plot_mutation_rate_vs(
         f, ax1 = plt.subplots(figsize=(11, 5))
     ycol = "rate"
 
-    #per_col_rates = per_col_rates[per_col_rates["motif_size"] <= 1]
+    # per_col_rates = per_col_rates[per_col_rates["motif_size"] <= 1]
     print (per_col_rates)
 
     x, y = per_col_rates[colname], per_col_rates[ycol].values
@@ -198,7 +187,7 @@ def plot_mutation_rate_vs(
     ax_denom = ax1.twinx()
     per_col_denoms = per_col_denoms[per_col_denoms[colname] <= per_col_rates[colname].max()]
     denom_y = per_col_denoms["denominator"] // mutations["sample_id"].nunique()
-    if PER_HAPLOTYPE:
+    if snakemake.params.rate_per_haplotype:
         denom_y //= 2
 
     ax_denom.plot(per_col_denoms[colname], denom_y, c="darkgrey", zorder=-1, lw=0.75)
@@ -250,7 +239,7 @@ def plot_mutation_rate_vs(
 
     if include_labels:
         ax1.set_ylabel("Mutation rate\n(per locus, per haplotype\n per generation) +/- 95% CI", c="dodgerblue")
-        
+
         # ax2.set_xticklabels(per_col_rates_simple["simple_motif_size"].to_list())
         ax_denom.set_ylabel("Total number of loci in reference genome", c="darkgrey")
 
@@ -267,8 +256,14 @@ def plot_mutation_rate_vs(
 
     # if colname == "motif_size":
     #     plt.setp(ax2.get_yticklabels(), visible=include_labels, c="dodgerblue")
-
     f.tight_layout()
     f.savefig(outname, dpi=300 if outname.endswith('png') else None)
 
-plot_mutation_rate_vs(mutations, denoms, colname="motif_size", plot_strs=False, include_labels=True, outname="motif_size.rates.png")
+plot_mutation_rate_vs(
+    mutations,
+    denoms,
+    colname="motif_size",
+    plot_strs=False,
+    include_labels=True,
+    outname=snakemake.output.png,
+)

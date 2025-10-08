@@ -11,21 +11,8 @@ plt.rc("font", size=12)
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
 
-def check_phase(p):
-    if p == "unknown": return p
-    else:
-        support = float(p.split(":")[1])
-        if support < 0.75:
-            return "unknown"
-        else:
-            return p.split(":")[0]
+mutations = pd.read_csv(snakemake.input.mutations, sep="\t", dtype={"paternal_id": str})
 
-
-ASSEMBLY = "CHM13v2"
-
-mutations = pd.read_csv("CHM13v2.filtered.tsv", sep="\t", dtype={"paternal_id": str})
-
-mutations["phase"] = mutations["phase_consensus"].apply(lambda p: check_phase(p))
 phased = mutations[mutations["phase"] != "unknown"]
 hap_phased = phased[~phased["haplotype_in_parent_consensus"].str.contains("unknown")]
 
@@ -54,4 +41,4 @@ ax.set_yscale("symlog")
 ax.set_xscale("symlog")
 sns.despine(ax=ax)
 f.tight_layout()
-f.savefig("parsimony.png", dpi=200)
+f.savefig(snakemake.output.png, dpi=200)

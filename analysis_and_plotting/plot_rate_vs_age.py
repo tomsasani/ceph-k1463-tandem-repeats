@@ -10,22 +10,6 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 
-def calculate_poisson_ci(ct: int, obs: int, alpha: float = 0.95):
-
-    l, u = (1 - alpha) / 2, 1 - ((1 - alpha) / 2)
-
-    lower_bound = ss.chi2.ppf(l, ct * 2) / 2
-    upper_bound = ss.chi2.ppf(u, (ct + 1) * 2) / 2
-
-    # lower_bound = ss.poisson.ppf(l, ct)
-    # upper_bound = ss.poisson.ppf(u, ct)
-    
-    # Convert bounds to rates per observation
-    rate_lower = lower_bound / obs
-    rate_upper = upper_bound / obs
-    
-    return (rate_lower, rate_upper)
-
 def get_motif_types(row: pd.Series):
     if row["max_motiflen"] == 1:
         return "homopolymer"
@@ -40,10 +24,7 @@ plt.rc("font", size=14)
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
 
-ASSEMBLY = "CHM13v2"
-PER_HAPLOTYPE = False
-
-mutations = pd.read_csv(f"{ASSEMBLY}.filtered.tsv", dtype={"sample_id": str, "paternal_id": str}, sep="\t")
+mutations = pd.read_csv(snakemake.input.mutations, dtype={"sample_id": str, "paternal_id": str}, sep="\t")
 
 mutations["generation"] = mutations["sample_id"].apply(lambda s: "G4A" if s.startswith("2000") else "G4B" if s.startswith("2001") else "G3")
 
@@ -52,22 +33,7 @@ sample_ids = mutations["sample_id"].unique()
 # map alternate (NAXXXX) IDs to original (2189) IDs
 alt2orig = dict(zip(mutations["alt_sample_id"], mutations["sample_id"]))
 
-# read in per-sample denominators
-denoms = []
-for fh in glob.glob(f"csv/denominators/*.{ASSEMBLY}.v4.0.denominator.tsv"):
-    df = pd.read_csv(fh, sep="\t", dtype={"sample_id": str})    
-    denoms.append(df)
-denoms = pd.concat(denoms)
-denoms = denoms[denoms["sample_id"].isin(sample_ids)]
-
-# if we want to calculate mutation rates per-haplotype, rather
-# than per-genome, we need to multiply the denominator by 2 to account
-# for there being 2 copies of every locus in a diploid genome.
-if PER_HAPLOTYPE:
-    denoms["denominator"] *= 2
-
-
-metadata = pd.read_csv("tr_validation/data/k20_parental_age_at_birth.csv", dtype={"UGRP Lab ID (archive)": str})
+metadata = pd.read_csv(snakemake.input.metadata, dtype={"UGRP Lab ID (archive)": str})
 
 mutations = mutations.merge(metadata, left_on="sample_id", right_on="UGRP Lab ID (archive)")
 
@@ -75,59 +41,24 @@ mutations = mutations[mutations["phase"] != "unknown"]
 
 mutations["TR type"] = mutations.apply(lambda row: get_motif_types(row), axis=1)
 
-
-sample_counts = (
-    mutations.groupby(
-        [
-            "sample_id",
-            "PaAge",
-            "phase",
-            "TR type",
-            "generation",
-        ]
-    )
-    .size()
-    .reset_index()
-    .rename(columns={0: "count"})
-)
-
-
-sample_totals = sample_counts.groupby(["sample_id"]).agg(total=("count", "sum")).reset_index()
-sample_counts = sample_counts.merge(sample_totals)
-
-alpha_counts = (
-    mutations.groupby(
-        [
-            "sample_id",
-            "PaAge",
-            "phase",
-        ]
-    )
-    .size()
-    .reset_index()
-    .rename(columns={0: "count"})
-)
-alpha_totals = alpha_counts.groupby(["sample_id", "PaAge"]).agg(total=("count", "sum")).reset_index()
-alpha_counts = alpha_counts.merge(alpha_totals)
-alpha_counts = alpha_counts[alpha_counts["phase"] == "dad"]
-alpha_counts["alpha"] = alpha_counts["count"] / alpha_counts["total"]
+# alpha_counts = (
+#     mutations.groupby(
+#         [
+#             "sample_id",
+#             "PaAge",
+#             "phase",
+#         ]
+#     )
+#     .size()
+#     .reset_index()
+#     .rename(columns={0: "count"})
+# )
+# alpha_totals = alpha_counts.groupby(["sample_id", "PaAge"]).agg(total=("count", "sum")).reset_index()
+# alpha_counts = alpha_counts.merge(alpha_totals)
+# alpha_counts = alpha_counts[alpha_counts["phase"] == "dad"]
+# alpha_counts["alpha"] = alpha_counts["count"] / alpha_counts["total"]
 
 
-model = sm.OLS(alpha_counts["alpha"], alpha_counts["PaAge"]).fit()
-print (model.summary())
-
-g = sns.lmplot(
-    data=alpha_counts,
-    x="PaAge",
-    y="alpha",
-    scatter_kws={
-        "edgecolor": "w",
-        "s": 150,
-        "linewidths": 2,
-    },
-)
-
-g.savefig("alpha.png", dpi=200)
 
 sample_counts = (
     mutations.groupby(
@@ -208,4 +139,4 @@ for tr, tr_df in sample_counts.groupby("TR type"):
     sns.despine(ax=ax)
 axarr[1, 0].legend(shadow=True, title="Parent-of-origin")
 f.tight_layout()
-f.savefig("age_effects.png", dpi=200)
+f.savefig(snakemake.output.png, dpi=200)
