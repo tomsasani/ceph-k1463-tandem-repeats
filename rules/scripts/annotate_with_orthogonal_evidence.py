@@ -206,152 +206,120 @@ def read_bam(fh: str):
     return bam
 
 
-def main(args):
+mutations = pd.read_csv(snakemake.input.mutations, sep="\t", dtype={"sample_id": str})
+# validate with schema, but don't require a sample_id or genotype column
+ValidationSchema.validate(mutations)
 
-    mutations = pd.read_csv(args.mutations, sep="\t", dtype={"sample_id": str})
-    # validate with schema, but don't require a sample_id or genotype column
-    ValidationSchema.validate(mutations)
-
-    # read in BAM files for this sample, as well as parents if applicable
-    kid_bam, mom_bam, dad_bam = (
-        read_bam(fh) for fh in (args.kid_bam, args.mom_bam, args.dad_bam)
+# read in BAM files for this sample, as well as parents if applicable
+kid_bam, mom_bam, dad_bam = (
+    read_bam(fh)
+    for fh in (
+        snakemake.params.kid_bam,
+        snakemake.params.mom_bam,
+        snakemake.params.dad_bam,
     )
+)
 
-    # store output
-    res = []
+# store output
+res = []
 
-    for i, row in tqdm.tqdm(mutations.iterrows()):
-        # convert the pd.Series into a dict we can update
-        # with addtl info later
-        row_dict = row.to_dict()
+for i, row in tqdm.tqdm(mutations.iterrows()):
+    # convert the pd.Series into a dict we can update
+    # with addtl info later
+    row_dict = row.to_dict()
 
-        chrom, start, end = row["#chrom"], row["start"], row["end"]
-        start, end = int(start) - 1, int(end)
-        region = f"{chrom}:{start}-{end}"
+    chrom, start, end = row["#chrom"], row["start"], row["end"]
+    start, end = int(start) - 1, int(end)
+    region = f"{chrom}:{start}-{end}"
 
-        # for sites at which we've detected a de novo,
-        # figure out which allele lengths correspond to the
-        # de novo and non de novo alleles.
-        denovo_idx = int(row_dict["index"])
-        assert denovo_idx in (0, 1)
+    # for sites at which we've detected a de novo,
+    # figure out which allele lengths correspond to the
+    # de novo and non de novo alleles.
+    denovo_idx = int(row_dict["index"])
+    assert denovo_idx in (0, 1)
 
-        allele_lengths = list(map(int, row_dict["child_AL"].split(",")))
+    allele_lengths = list(map(int, row_dict["child_AL"].split(",")))
 
-        denovo_al = allele_lengths[denovo_idx]
-        non_denovo_al = None
+    denovo_al = allele_lengths[denovo_idx]
+    non_denovo_al = None
 
-        # if we're on a male X, there's only one AL.
-        # we'll just define a "dummy" non denovo AL for
-        # the purposes of this script, though it's not
-        # used for anything in particular.
-        is_male_sex_chrom = len(allele_lengths) == 1
-        if is_male_sex_chrom:
-            non_denovo_al = 1 * denovo_al
-        else:
-            non_denovo_al = allele_lengths[1 - denovo_idx]
+    # if we're on a male X, there's only one AL.
+    # we'll just define a "dummy" non denovo AL for
+    # the purposes of this script, though it's not
+    # used for anything in particular.
+    is_male_sex_chrom = len(allele_lengths) == 1
+    if is_male_sex_chrom:
+        non_denovo_al = 1 * denovo_al
+    else:
+        non_denovo_al = allele_lengths[1 - denovo_idx]
 
-        ref_len = end - start - 1
-        # calculate expected diffs between alleles and the reference genome.
-        exp_diff_denovo = denovo_al - ref_len
-        exp_diff_non_denovo = non_denovo_al - ref_len
+    ref_len = end - start - 1
+    # calculate expected diffs between alleles and the reference genome.
+    exp_diff_denovo = denovo_al - ref_len
+    exp_diff_non_denovo = non_denovo_al - ref_len
 
-        # if the total length of either allele is greater than the length of
-        # a typical read, move on
-        max_al = 100_000 if args.tech in ("hifi", "ont") else 120
+    # if the total length of either allele is greater than the length of
+    # a typical read, move on
+    max_al = 100_000 if snakemake.wildcards.TECH in ("hifi", "ont") else 120
 
-        if max([denovo_al, non_denovo_al]) > max_al:
-            continue
+    if max([denovo_al, non_denovo_al]) > max_al:
+        continue
 
-        row_dict.update(
-            {
-                "region": region,
-                "exp_allele_diff_denovo": exp_diff_denovo,
-                "exp_allele_diff_non_denovo": exp_diff_non_denovo,
-            }
-        )
-
-        # loop over reads in the BAM for this individual
-        bam_evidence = {
-            "mom_evidence": None,
-            "dad_evidence": None,
-            "kid_evidence": None,
+    row_dict.update(
+        {
+            "region": region,
+            "exp_allele_diff_denovo": exp_diff_denovo,
+            "exp_allele_diff_non_denovo": exp_diff_non_denovo,
         }
+    )
 
-        for bam, label in zip(
-            (mom_bam, dad_bam, kid_bam),
-            ("mom", "dad", "kid"),
-        ):
-            diff_counts = extract_diffs_from_bam(
-                bam,
-                chrom,
-                start,
-                end,
-                min_mapq=20,
-            )
-            
-            # calculate the total number of queryable reads
-            # for this individual. if that's < 10, move on.
-            total_depth = sum([v for k, v in diff_counts])
-            if total_depth < 10: 
-                continue
-            else:
-                # otherwise, summarize the orthogonal evidence
-                evidence = {
-                    f"{label}_evidence": "|".join(
-                        [
-                            ":".join(list(map(str, [diff, count])))
-                            for diff, count in diff_counts
-                        ]
-                    )
-                }
-                bam_evidence.update(evidence)
+    # loop over reads in the BAM for this individual
+    bam_evidence = {
+        "mom_evidence": None,
+        "dad_evidence": None,
+        "kid_evidence": None,
+    }
 
-        # if any members of the trio had fewer than 10 "good" reads,
-        # AND we passed in BAM files for everyone, skip
-        skip = False
-        for b, k in zip((args.kid_bam, args.mom_bam, args.dad_bam), ("kid_evidence", "mom_evidence", "dad_evidence")):
-            if b is not None and bam_evidence[k] is None:
-                skip = True
-        if skip: continue
+    for bam, label in zip(
+        (mom_bam, dad_bam, kid_bam),
+        ("mom", "dad", "kid"),
+    ):
+        diff_counts = extract_diffs_from_bam(
+            bam,
+            chrom,
+            start,
+            end,
+            min_mapq=20,
+        )
+        
+        # calculate the total number of queryable reads
+        # for this individual. if that's < 10, move on.
+        total_depth = sum([v for k, v in diff_counts])
+        if total_depth < 10: 
+            continue
         else:
-            row_dict.update(bam_evidence)
-            res.append(row_dict)
+            # otherwise, summarize the orthogonal evidence
+            evidence = {
+                f"{label}_evidence": "|".join(
+                    [
+                        ":".join(list(map(str, [diff, count])))
+                        for diff, count in diff_counts
+                    ]
+                )
+            }
+            bam_evidence.update(evidence)
 
-    res_df = pd.DataFrame(res)
+    # if any members of the trio had fewer than 10 "good" reads,
+    # AND we passed in BAM files for everyone, skip
+    skip = False
+    for b, k in zip((snakemake.params.kid_bam, snakemake.params.mom_bam, snakemake.params.dad_bam), ("kid_evidence", "mom_evidence", "dad_evidence"),):
+        if b is not None and bam_evidence[k] is None:
+            skip = True
+    if skip: continue
+    else:
+        row_dict.update(bam_evidence)
+        res.append(row_dict)
 
-    res_df.to_csv(args.out, sep="\t", index=False)
+res_df = pd.DataFrame(res)
 
-
-if __name__ == "__main__":
-    p = argparse.ArgumentParser()
-    p.add_argument(
-        "--mutations",
-        help="""Path to parquet/tsv file containing candidate mutations""",
-    )
-    p.add_argument(
-        "--kid_bam",
-        help="""Path to BAM file with aligned Elements reads for the sample of interest""",
-    )
-    p.add_argument(
-        "--out",
-        help="""Name of output file to store read support evidence for each call.""",
-    )
-    p.add_argument(
-        "--tech",
-        type=str,
-        help="""Technology.""",
-    )
-    p.add_argument(
-        "-mom_bam",
-        help="""Path to BAM file with aligned Elements reads for the sample of interest""",
-        default=None,
-    )
-    p.add_argument(
-        "-dad_bam",
-        help="""Path to BAM file with aligned Elements reads for the sample of interest""",
-        default=None,
-    )
-
-    args = p.parse_args()
-
-    main(args)
+res_df.to_csv(snakemake.output.fh, sep="\t", index=False)
