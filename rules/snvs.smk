@@ -50,7 +50,7 @@ rule sort_snv_chrom_vcfs:
 
 
 rule index_snv_chrom_vcfs:
-    input: "data/vcf/snv/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz"
+    input: vcf = "data/vcf/snv/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz"
     output: "data/vcf/snv/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz.tbi"
     threads: 4
     script:
@@ -87,11 +87,7 @@ rule merge_trio_vcfs:
 
 
 rule index_merged_vcf:
-    input: "data/vcf/trios/merged/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.vcf.gz"
+    input: vcf = "data/vcf/trios/merged/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.vcf.gz"
     output: "data/vcf/trios/merged/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.vcf.gz.tbi"
-    shell:
-        """
-        module load bcftools
-        
-        bcftools index --tbi {input}
-        """
+    script:
+        "bash_scripts/index_vcf.sh"
