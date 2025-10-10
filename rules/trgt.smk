@@ -1,6 +1,9 @@
 import pandas as pd
 
 
+CUR_PREF = "/scratch/ucgd/lustre-labs/quinlan/u1006375/CEPH-K1463-TandemRepeats/"
+
+
 ASSEMBLY2REF = {
     "GRCh38": "/scratch/ucgd/lustre/common/data/Reference/homo_sapiens/GRCh38/primary_assembly_decoy_phix.fa",
     "CHM13v2": "/scratch/ucgd/lustre/common/data/Reference/homo_sapiens/CHM13v2.0/primary_assembly_decoy_phix.fa"
@@ -19,6 +22,7 @@ ped = pd.read_csv(PED_FILE, sep=",", dtype={"paternal_id": str, "maternal_id": s
 
 ped["sex"] = ped["suffix"].apply(lambda s: "male" if ("S" in s or s == "F") else "female" )
 SMP2SEX = dict(zip(ped["sample_id"], ped["sex"]))
+
 
 def get_complete_bams(wildcards):
     """
@@ -114,22 +118,29 @@ rule sort_chrom_vcfs:
     input: 
         vcf = "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.vcf.gz",
     output:
-        vcf = "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz",
+        vcf = CUR_PREF + "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz",
     script:
         "bash_scripts/sort_trgt_vcf.sh"
 
 
 rule index_trgt_vcfs:
     input:
-        vcf = "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz"
+        vcf = CUR_PREF + "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz"
     output:
-        "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz.tbi"
+        CUR_PREF + "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz.tbi"
     script:
         "bash_scripts/index_vcf.sh"
 
 
 rule sort_bam:
     input: bam = "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.spanning.bam"
-    output: bam = temp("data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.spanning.sorted.bam")
+    output: bam = CUR_PREF + "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.spanning.sorted.bam"
     script:
         "bash_scripts/sort_bam.sh"
+
+
+rule index_bam:
+    input: bam = CUR_PREF + "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.spanning.sorted.bam"
+    output: CUR_PREF + "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.spanning.sorted.bam.bai"
+    script:
+        "bash_scripts/index_bam.sh"

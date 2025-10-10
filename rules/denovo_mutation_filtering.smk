@@ -1,6 +1,8 @@
 import pandas as pd
 import glob
 
+CUR_PREF = "/scratch/ucgd/lustre-labs/quinlan/u1006375/CEPH-K1463-TandemRepeats/"
+
 
 wildcard_constraints:
     SAMPLE = r"[0-9]{4,6}",
@@ -32,6 +34,19 @@ for fh in glob.glob(HPRC_PREF + "GRCh38_v1.0_50bp_merge/1.1.2-69937d83/hprc/*.vc
     if sample_id == "hprc": continue
     HPRC_SAMPLES.append(sample_id)
 
+def get_bam_for_validation(sample, assembly, tech):
+
+    assembly_adj = assembly.split('v2')[0]
+    sample_id = SMP2ALT[sample] if tech in ("ont", "hifi") else sample
+
+    tech2path = {
+        "ont": "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/ont-bams/{0}/{1}.minimap2.bam".format(assembly_adj, sample_id,), 
+        "element": "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/element/{0}_bams/{1}-E.{0}.merged.sort.bam".format(assembly_adj, sample_id,),
+        "illumina": "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/CEPH/cram/{0}.cram".format(sample_id),
+        "hifi": "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/hifi-bams/{0}/{1}.{2}.haplotagged.bam".format(assembly_adj, sample_id, assembly_adj.lower() if 'CHM' in assembly else assembly_adj,),
+        }
+
+    return tech2path[tech]
 
 def get_children_vcfs(wildcards):
     if wildcards.SAMPLE == "2216":
@@ -63,7 +78,7 @@ def get_annotation_fh(wildcards):
 
 rule combine_trgt_denovo:
     input:
-        fhs = expand("csv/raw_denovos/{{SAMPLE}}.{{ASSEMBLY}}.{{USE_NEW_BAM}}.{CHROM}.trgt-denovo.csv", CHROM=CHROMS)
+        fhs = expand(CUR_PREF + "csv/raw_denovos/{{SAMPLE}}.{{ASSEMBLY}}.{{USE_NEW_BAM}}.{CHROM}.trgt-denovo.csv", CHROM=CHROMS)
     output: fh = "csv/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.trgt-denovo.csv"
     shell:
         """
@@ -112,10 +127,12 @@ rule calculate_denominator:
 rule annotate_with_informative_sites:
     input:
         cohort_snp_vcf = "data/vcf/trios/merged/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.vcf.gz",
+        cohort_snp_vcf_idx = "data/vcf/trios/merged/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.vcf.gz.tbi",
         kid_phased_snp_vcf = "data/vcf/snv/phased/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.phased.vcf.gz",
         kid_phased_snp_vcf_idx = "data/vcf/snv/phased/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.phased.vcf.gz.tbi",
         kid_mutation_df = "csv/prefiltered/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv",
         kid_phased_str_vcf = "data/trgt/phased/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.phased.vcf.gz",
+        kid_phased_str_vcf_idx = "data/trgt/phased/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.phased.vcf.gz.tbi",
         py_script = "rules/scripts/annotate_with_informative_sites.py",
     output:
         out = "csv/phasing/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.annotated.2gen.tsv"
@@ -143,9 +160,13 @@ rule annotate_with_parental_haplotype:
         py_script = "rules/scripts/annotate_with_parental_haplotype.py",
         annotated_dnms = "csv/phasing/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.annotated.2gen.tsv",
         dad_phased_str_vcf = lambda wildcards: f"data/trgt/phased/{SMP2DAD[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz",
+        dad_phased_str_vcf_idx = lambda wildcards: f"data/trgt/phased/{SMP2DAD[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz.tbi",
         dad_phased_snv_vcf = lambda wildcards: f"data/vcf/snv/phased/{SMP2DAD[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz",
+        dad_phased_snv_vcf_idx = lambda wildcards: f"data/vcf/snv/phased/{SMP2DAD[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz.tbi",
         mom_phased_str_vcf = lambda wildcards: f"data/trgt/phased/{SMP2MOM[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz",
+        mom_phased_str_vcf_idx = lambda wildcards: f"data/trgt/phased/{SMP2MOM[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz.tbi",
         mom_phased_snv_vcf = lambda wildcards: f"data/vcf/snv/phased/{SMP2MOM[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz",
+        mom_phased_snv_vcf_idx = lambda wildcards: f"data/vcf/snv/phased/{SMP2MOM[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz.tbi",
     output:
         out = "csv/phasing/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.haplotyped.2gen.tsv"
     params:
@@ -175,12 +196,16 @@ rule phase:
                                  --out {output}
         """
 
+
 rule annotate_with_parental_alleles:
     input:
         annotated_dnms = "csv/phasing/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.phased.2gen.tsv",
         dad_phased_str_vcf = lambda wildcards: f"data/trgt/phased/{SMP2DAD[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz",
+        dad_phased_str_vcf_idx = lambda wildcards: f"data/trgt/phased/{SMP2DAD[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz.tbi",
         mom_phased_str_vcf = lambda wildcards: f"data/trgt/phased/{SMP2MOM[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz",
+        mom_phased_str_vc_idx = lambda wildcards: f"data/trgt/phased/{SMP2MOM[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz.tbi",
         kid_phased_str_vcf = lambda wildcards: f"data/trgt/phased/{wildcards.SAMPLE}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz",
+        kid_phased_str_vcf_idx = lambda wildcards: f"data/trgt/phased/{wildcards.SAMPLE}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz.tbi",
     output:
         out = "csv/phasing/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.allele_sequences.tsv"
     script:
@@ -238,7 +263,9 @@ rule add_orthogonal_filter:
 rule add_transmission_evidence:
     input:
         mutations = "csv/prefiltered/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv",
-        other_vcfs = get_children_vcfs
+        other_vcfs = get_children_vcfs,
+        other_vcf_idxs = lambda wildcards: [v + ".tbi" for v in get_children_vcfs(wildcards)]
+
     output: fh = "csv/transmission/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
     params:
         generation_to_query = "children"
@@ -249,7 +276,8 @@ rule add_transmission_evidence:
 rule add_grandparental_evidence:
     input:
         mutations = "csv/prefiltered/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv",
-        other_vcfs = get_grandparent_vcfs
+        other_vcfs = lambda wildcards: get_grandparent_vcfs(wildcards),
+        other_vcf_idxs = lambda wildcards: [v + ".tbi" for v in get_grandparent_vcfs(wildcards)]
     output: fh = "csv/grandparents/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
     params:
         generation_to_query = "grandparents"

@@ -2,8 +2,8 @@ rule run_hiphase:
     input:
         snv_vcf = "data/vcf/snv/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz",
         snv_vcf_idx = "data/vcf/snv/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz.tbi",
-        str_vcf = "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz",
-        str_vcf_idx = "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz.tbi",
+        str_vcf = CUR_PREF + "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz",
+        str_vcf_idx = CUR_PREF + "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz.tbi",
         bam = lambda wildcards: get_complete_bams(wildcards),
         bam_idx = lambda wildcards: get_complete_bams(wildcards) + ".bai",
         reference = "data/contigs/{CHROM}.{ASSEMBLY}.fa.gz",
@@ -40,7 +40,7 @@ rule combine_phased_snv_vcfs:
 
 
 rule index_phased_snv_vcfs:
-    input: "data/vcf/snv/phased/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.phased.vcf.gz"
+    input: vcf = "data/vcf/snv/phased/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.phased.vcf.gz"
     output: "data/vcf/snv/phased/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.phased.vcf.gz.tbi"
     script:
         "bash_scripts/index_vcf.sh"
@@ -60,7 +60,7 @@ rule combine_phased_trgt_vcfs:
 
 
 rule index_phased_trgt_vcfs:
-    input: "data/trgt/phased/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.phased.vcf.gz"
+    input: vcf = "data/trgt/phased/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.phased.vcf.gz"
     output: "data/trgt/phased/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.phased.vcf.gz.tbi"
     script:
        "bash_scripts/index_vcf.sh"
