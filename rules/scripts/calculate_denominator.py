@@ -26,7 +26,11 @@ with open(snakemake.input.censat, "r") as infh:
 
 # read in raw mutations to define a denominator
 raw_loci = pd.read_csv(snakemake.input.loci, sep="\t")
-raw_loci["overlaps_censat"] = raw_loci.apply(lambda row: annotate_with_censat(row, censat), axis=1)
+
+if snakemake.wildcards.ASSEMBLY == "CHM13v2":
+    raw_loci["overlaps_censat"] = raw_loci.apply(lambda row: annotate_with_censat(row, censat), axis=1)
+else:
+    raw_loci["overlaps_censat"] = 0
 
 raw_loci["is_complex"] = raw_loci["n_motifs"] > 1
 

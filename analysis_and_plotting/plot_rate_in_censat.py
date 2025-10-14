@@ -66,7 +66,8 @@ per_sample_denoms = (
 per_sample_mutation_counts = (
     mutations.groupby(group_cols).size().reset_index().rename(columns={0: "numerator"})
 )
-
+print (per_sample_denoms)
+print (per_sample_mutation_counts)
 per_sample_rates = per_sample_mutation_counts.merge(per_sample_denoms)
 
 per_sample_rates["rate"] = per_sample_rates["numerator"] / per_sample_rates["denominator"]
@@ -82,7 +83,7 @@ per_sample_rates["ci_hi"] = per_sample_rates.apply(
 
 per_sample_rates["overlaps_censat"] = per_sample_rates["overlaps_censat"].replace(
     {
-        "no": "Non-repetitive",
+        "no": "None",
         "gsat": r"$\gamma$",
         "censat": "Other",
         "hsat1B": "Classical human",

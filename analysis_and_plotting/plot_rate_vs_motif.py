@@ -163,19 +163,10 @@ def plot_mutation_rate_vs(
 
     # plot rates across samples
     if colname == "motif_size":
-        # f, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5), sharey=True)
-        # f = plt.figure(figsize=(18, 8))
         f, ax1 = plt.subplots(figsize=(14, 7))
-
-        # gs = gridspec.GridSpec(1, 2, width_ratios=[1, 4], wspace=0.1)
-        # ax2 = plt.subplot(gs[0, 0])
-        # ax1 = plt.subplot(gs[0, 1])#, sharey=ax2)
     else:
         f, ax1 = plt.subplots(figsize=(11, 5))
     ycol = "rate"
-
-    # per_col_rates = per_col_rates[per_col_rates["motif_size"] <= 1]
-    print (per_col_rates)
 
     x, y = per_col_rates[colname], per_col_rates[ycol].values
     err = per_col_rates[["ci_lo", "ci_hi"]].values.T
@@ -219,23 +210,12 @@ def plot_mutation_rate_vs(
             lambda row: calculate_poisson_ci(row["numerator"], row["denominator"])[1],
             axis=1,
         )
-        # x, y = [0.25, 1, 1.75], per_col_rates_simple[ycol].values
-        # err = per_col_rates_simple[["ci_lo", "ci_hi"]].values.T
-        # offset = np.zeros_like(err)
-        # offset[0, :] = y - err[0]
-        # offset[1, :] = err[1] - y
-        # ax2.set_xticks([0.25, 1, 1.75])
-        # ax2.set_xlim(0, 2)
-        # ax2.errorbar(x, y, yerr=offset, c="dodgerblue", fmt="o", ms=10)
-        # sns.despine(ax=ax2, left=False, right=True, top=True)
 
     ax1.set_yscale("log")
     ax1.set_xscale("log")
     sns.despine(ax=ax1, top=True)
     sns.despine(ax=ax_denom, right=False, top=True)
-    # sns.despine(ax=ax_denom, left=False, right=False, top=True)
     ax1.set_xlim(0, per_col_rates[colname].max() + 10)
-    # ax_denom.set_xlim(0, per_col_rates[colname].max() + 1)
 
     if include_labels:
         ax1.set_ylabel("Mutation rate\n(per locus, per haplotype\n per generation) +/- 95% CI", c="dodgerblue")
@@ -249,13 +229,7 @@ def plot_mutation_rate_vs(
             ax1.set_xlabel("Length of reference allele (bp)")
     else:
         plt.setp(ax1.get_xticklabels(), visible=False)
-        # plt.setp(ax2.get_xticklabels(), visible=False)
-
-    # plt.setp(ax1.get_yticklabels(), visible=include_labels, c="dodgerblue")
-    # plt.setp(ax_denom.get_yticklabels(), visible=include_labels, c="darkgrey")
-
-    # if colname == "motif_size":
-    #     plt.setp(ax2.get_yticklabels(), visible=include_labels, c="dodgerblue")
+        
     f.tight_layout()
     f.savefig(outname, dpi=300 if outname.endswith('png') else None)
 

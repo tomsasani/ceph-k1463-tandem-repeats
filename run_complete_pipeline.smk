@@ -14,9 +14,12 @@ ped = pd.read_csv(PED_FILE, sep=",", dtype={"paternal_id": str, "maternal_id": s
 
 
 CHILDREN = ped[(ped["paternal_id"] != "missing") & (~ped["paternal_id"].isin(["2281", "2214"]))]["sample_id"].to_list()
+ASSEMBLIES = ["CHM13v2", "GRCh38"]
+
 
 rule all:
     input:
-        expand("csv/filtered_and_merged/{SAMPLE}.CHM13v2.TOPUP.tsv", SAMPLE=["200101"]),
-        expand("csv/annotated/{SAMPLE}.CHM13v2.element.TOPUP.tsv", SAMPLE=["200101"]),
-        expand("csv/recurrent/CHM13v2.TOPUP.recurrent.tsv")
+        expand("csv/filtered_and_merged/{SAMPLE}.{ASSEMBLY}.TOPUP.tsv", SAMPLE=CHILDREN, ASSEMBLY=ASSEMBLIES),
+        expand("csv/denominators/{SAMPLE}.{ASSEMBLY}.TOPUP.denominator.tsv", SAMPLE=CHILDREN, ASSEMBLY=ASSEMBLIES),
+        expand("csv/annotated/{SAMPLE}.{ASSEMBLY}.element.TOPUP.tsv", SAMPLE=CHILDREN, ASSEMBLY=ASSEMBLIES),
+        expand("csv/recurrent/{ASSEMBLY}.TOPUP.recurrent.tsv", ASSEMBLY=ASSEMBLIES)

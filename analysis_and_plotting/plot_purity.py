@@ -1,12 +1,11 @@
 import pandas as pd
-import glob
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import scipy.stats as ss
 import matplotlib.patches as patches
 
-plt.rc("font", size=12)
+plt.rc("font", size=11)
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
 
@@ -28,7 +27,7 @@ mutations["direction"] = mutations["likely_denovo_size"].apply(
 )
 
 
-f, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharey=True)
+f, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 4), sharey=True)
 
 palette = sns.color_palette("colorblind", 2)
 
@@ -65,13 +64,35 @@ for i, (val, ax) in enumerate(zip(("AL", "AP"), (ax1, ax2))):
     ind = np.arange(v_edges[1:].shape[0])
 
     ax.bar(v_edges[1:], v_hist, v_edges[1:] - v_edges[:-1], ec="w", color="k", lw=1,  zorder=1)
-    rect1 = patches.Rectangle((0, 0), max(v_edges), max(v_hist), facecolor='green', zorder=-1, alpha=0.1)
-    rect2 = patches.Rectangle((0, 0), min(v_edges), max(v_hist), facecolor='red', zorder=-1, alpha=0.1)
+    rect1 = patches.Rectangle((0, 0), max(v_edges), 1e3, facecolor='green', zorder=-1, alpha=0.1)
+    rect2 = patches.Rectangle((0, 0), min(v_edges), 1e3, facecolor='red', zorder=-1, alpha=0.1)
+
+    # annotate with arrows
+    for side in ("less", "more"):
+        
+        arrow_start = max(v_edges) / 4 if side == "more" else min(v_edges) / 4
+        arrow_tip = arrow_start * 3 
+        arr = patches.FancyArrowPatch((arrow_start, 1e2), (arrow_tip, 1e2),
+                               arrowstyle='-|>', color="k", mutation_scale=20)
+        ax.add_patch(arr)
+        lab = (arrow_tip + arrow_start) / 3. if side == "more" else (arrow_tip + arrow_start) / 1.3
+
+        annotation = "transmitted allele\n    is"
+        if val == "AP":
+            annotation += f" {side} pure"
+        else:
+            annotation += " longer" if side == "more" else " shorter"
+        # ax.annotate(
+        #     annotation,
+        #     (lab, 2e2),
+        #     size=8
+            
+        # )
 
     # Add the patch to the axes
     ax.add_patch(rect1)
     ax.add_patch(rect2)
-
+    ax.set_title(f"Wilcoxon p = {p:.2e}")
     ax.set_xlabel("Difference between allele lengths..." if val == "AL" else "...and allele purities")
     sns.despine(ax=ax)
     ax.set_yscale("log")

@@ -2,9 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-import glob
-import scipy.stats as ss
-import tqdm
+import matplotlib.patches as patches
 
 
 plt.rc("font", size=14)
@@ -69,11 +67,18 @@ palette = sns.color_palette("colorblind", 2)
 
 for m, mdf in strs.groupby("motif_size"):
     i, j = motif2i[m], motif2j[m]
+    ax = axarr[i, j]
     hist, edges = np.histogram(mdf["likely_denovo_size"].values, bins=bins)
     exact_multiple_idxs = np.where(edges[:-1] % m == 0)[0]
     other_idxs = np.setdiff1d(np.arange(edges[:-1].shape[0]), exact_multiple_idxs)
 
     hist_frac = hist / np.sum(hist)
+
+    rect1 = patches.Rectangle((0, 0), max(edges), 0.5, facecolor='green', zorder=-1, alpha=0.1)
+    rect2 = patches.Rectangle((0, 0), min(edges), 0.5, facecolor='red', zorder=-1, alpha=0.1)
+
+    ax.add_patch(rect1)
+    ax.add_patch(rect2)
 
     for match, idxs in zip((True, False), (exact_multiple_idxs, other_idxs)):
 
@@ -82,20 +87,20 @@ for m, mdf in strs.groupby("motif_size"):
         lw = 1
         ec = "k" if match else "w"
         color = palette[1 - int(match)]
-        axarr[i, j].bar(ind, vals, 1, lw=0.5, ec="w", color=color, label="perfect" if match else "imperfect", zorder=0)
+        ax.bar(ind, vals, 1, lw=0.5, ec="w", color=color, label="perfect" if match else "imperfect", zorder=0)
         title = f"Motif = {m} bp" if i == j == 0 else f"{m} bp"
         title += f"\n(n = {mdf.shape[0]})"
-        axarr[i, j].set_title(title)
+        ax.set_title(title)
         if i == 2:
-            axarr[i, j].set_xlabel("Inferred DNM size (bp)")
+            ax.set_xlabel("Inferred DNM size (bp)\n\n" + "(contraction " + r"$\rightarrow$" + " expansion)")
         if j == 0:
-            axarr[i, j].set_ylabel("Fraction of DNMs")
+            ax.set_ylabel("Fraction of DNMs")
         if i == 2 and j == 0:
-            axarr[i, j].legend(shadow=True)
+            ax.legend(shadow=True)
         for xpos in range(-20, 21):
             if xpos % m == 0 and m != 1:
-                axarr[i, j].axvline(xpos, ls="--", c="gainsboro", alpha=0.5, zorder=-1)
-    sns.despine(ax=axarr[i, j])
+                ax.axvline(xpos, ls="--", c="gainsboro", alpha=0.5, zorder=-1)
+    sns.despine(ax=ax)
 f.tight_layout()
 f.savefig(snakemake.output.png, dpi=200)
 

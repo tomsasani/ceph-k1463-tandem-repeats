@@ -6,6 +6,8 @@ ped = pd.read_csv(PED_FILE, sep=",", dtype={"paternal_id": str, "maternal_id": s
 
 CHILDREN = ped[(ped["paternal_id"] != "missing") & (~ped["paternal_id"].isin(["2281", "2214"]))]["sample_id"].to_list()
 
+ASSEMBLIES = ["CHM13v2", "GRCh38"]
+
 wildcard_constraints:
     SAMPLE = r"[0-9]{4,6}",
     ASSEMBLY = "GRCh38|CHM13v2",
@@ -14,8 +16,8 @@ wildcard_constraints:
 
 rule all:
     input:
-        "csv/filtered_for_plots/CHM13v2.TOPUP.tsv",
-        expand("plots/{plot_name}.CHM13v2.TOPUP.png", plot_name=[
+        expand("csv/filtered_for_plots/{ASSEMBLY}.TOPUP.tsv", ASSEMBLY=ASSEMBLIES),
+        expand("plots/{plot_name}.{ASSEMBLY}.TOPUP.png", plot_name=[
             "length_and_purity", 
             "het_effect", 
             "rate_vs_age", 
@@ -24,7 +26,7 @@ rule all:
             "censat_rate", 
             "motif_sizes",
             "motif_rate",
-            ])
+            ], ASSEMBLY=ASSEMBLIES)
 
 
 rule filter_denovos:
@@ -37,11 +39,12 @@ rule filter_denovos:
         csv = "csv/filtered_for_plots/{ASSEMBLY}.{TOPUP}.tsv"
     params:
         filter_by_transmission = False,
-        filter_by_grandparents = True,
+        filter_by_grandparents = False,
         filter_by_orthogonal = True,
         filter_by_recurrent = True,
     script:
         "analysis_and_plotting/filter_dnms.py"
+
 
 
 rule plot_dnm_counts:
@@ -94,7 +97,6 @@ rule plot_motif_sizes:
     input:
         mutations = "csv/filtered_for_plots/{ASSEMBLY}.{TOPUP}.tsv",
         akshay = "data/K1463.CHM13v2.DNMs.416.demintr.output",
-        
     output:
         png = "plots/motif_sizes.{ASSEMBLY}.{TOPUP}.png"
     script:

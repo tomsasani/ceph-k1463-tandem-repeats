@@ -42,7 +42,8 @@ def get_raw_ccs_bams(wildcards):
 rule align_ccs_bam:
     input:
         ref = lambda wildcards: ASSEMBLY2REF[wildcards.ASSEMBLY],
-        bam = NEW_PATH + "/K1463_{SAMPLE}/{SEQRUN}.hifi_reads.{BCID}.bam"
+        bam = NEW_PATH + "/K1463_{SAMPLE}/{SEQRUN}.hifi_reads.{BCID}.bam",
+        pbmm2 = "/uufs/chpc.utah.edu/common/HIPAA/u1006375/bin/pbmm2"
     output:
         bam = "data/bam/raw/{ASSEMBLY}/{SAMPLE}.{SEQRUN}.{BCID}.sorted.bam",
         bai = "data/bam/raw/{ASSEMBLY}/{SAMPLE}.{SEQRUN}.{BCID}.sorted.bam.bai",

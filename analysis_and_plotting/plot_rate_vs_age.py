@@ -41,25 +41,6 @@ mutations = mutations[mutations["phase"] != "unknown"]
 
 mutations["TR type"] = mutations.apply(lambda row: get_motif_types(row), axis=1)
 
-# alpha_counts = (
-#     mutations.groupby(
-#         [
-#             "sample_id",
-#             "PaAge",
-#             "phase",
-#         ]
-#     )
-#     .size()
-#     .reset_index()
-#     .rename(columns={0: "count"})
-# )
-# alpha_totals = alpha_counts.groupby(["sample_id", "PaAge"]).agg(total=("count", "sum")).reset_index()
-# alpha_counts = alpha_counts.merge(alpha_totals)
-# alpha_counts = alpha_counts[alpha_counts["phase"] == "dad"]
-# alpha_counts["alpha"] = alpha_counts["count"] / alpha_counts["total"]
-
-
-
 sample_counts = (
     mutations.groupby(
         [

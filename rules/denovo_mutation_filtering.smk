@@ -97,6 +97,8 @@ rule prefilter_all_loci:
         fh = "csv/prefiltered/all_loci/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
     params:
         filtering_mode = "lenient"
+    resources:
+        mem_mb = 32_000
     script:
         "scripts/filter_mutation_dataframe.py"
 
@@ -110,6 +112,8 @@ rule prefilter_denovos:
         fh = "csv/prefiltered/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
     params:
         filtering_mode = "strict"
+    resources:
+        mem_mb = 32_000
     script:
         "scripts/filter_mutation_dataframe.py"
 
