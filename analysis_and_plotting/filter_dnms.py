@@ -2,6 +2,7 @@ import pandas as pd
 from bx.intervals.intersection import Interval, IntervalTree
 from collections import defaultdict
 import csv
+from analysis_and_plotting.FAILING_TRIDS import FAIL_VNTRS, FAIL_SVS
 
 
 def annotate_with_censat(row: pd.Series, censat):
@@ -32,6 +33,9 @@ mutations = pd.concat(mutations).fillna(
     }
 )
 
+mutations = mutations[~mutations["trid"].isin(FAIL_VNTRS)]
+mutations = mutations[~mutations["trid"].isin(FAIL_SVS)]
+
 if snakemake.wildcards.ASSEMBLY == "CHM13v2":
     mutations["overlaps_censat"] = mutations.apply(lambda row: annotate_with_censat(row, censat), axis=1)
 else:
@@ -54,7 +58,7 @@ if snakemake.params.filter_by_recurrent:
 if snakemake.params.filter_by_orthogonal:
     # filter to STRs that had orthogonal data
     orthogonal = mutations[
-        (mutations["simple_motif_size"] == "STR")
+        (mutations["simple_motif_size"].isin(["STR", "non-homopolymer STR", "homopolymer"]))
         & (mutations["validation_status"] != "no_data")
     ]
     # make sure we're only looking at sites with max AL <= 120
