@@ -7,25 +7,15 @@ from bx.intervals.intersection import Interval, IntervalTree
 from collections import defaultdict
 import csv
 
-censat = defaultdict(IntervalTree)
-with open("data/t2t.censat.bed", "r") as infh:
-    csvf = csv.reader(infh, delimiter="\t")
-    for l in csvf:
-        chrom, start, end = l[:3]
-        censat[chrom].insert_interval(Interval(int(start), int(end)))
-
-ASSEMBLY = "CHM13v2"
-TECH = "hifi"
-TOPUP = "TOPUP"
-
 # get mutations
 mutations = []
-for fh in glob.glob(f"csv/annotated/*.{ASSEMBLY}.{TECH}.{TOPUP}.tsv"):
+for fh in snakemake.input.mutations:
     df = pd.read_csv(fh, sep="\t", dtype={"sample_id": str})
     mutations.append(df)
 mutations = pd.concat(mutations).dropna(subset=["kid_evidence", "mom_evidence", "dad_evidence"])
 
-recurrents = pd.read_csv("csv/recurrent/CHM13v2.v4.0.recurrent.tsv", sep="\t")["trid"].to_list()
+
+recurrents = pd.read_csv(snakemake.input.recurrent, sep="\t")["trid"].to_list()
 mutations = mutations[~mutations["trid"].isin(recurrents)]
 
 mutations["reference_al"] = mutations["end"] - mutations["start"]
@@ -38,7 +28,8 @@ mutations["child_to_reference_diff"] = (
 )
 mutations["child_to_parent_diff"] = mutations["likely_denovo_size"]
 
-mutations = mutations[mutations["min_motiflen"] > 10]
+mutations = mutations[mutations["min_motiflen"] >= snakemake.params.minimum_motif_size]
+mutations = mutations[mutations["likely_denovo_size"] >= snakemake.params.minimum_dnm_size]
 
 
 for (sample, trid, genotype), trid_df in mutations.groupby(
@@ -46,13 +37,20 @@ for (sample, trid, genotype), trid_df in mutations.groupby(
 ):
     validation = trid_df["validation_status"].unique()[0]
     motif_size = trid_df["motif_size"].values[0]
-    poi, support = trid_df["phase_consensus"].unique()[0].split(":")
+    poi, _, poi_support = trid_df["phase_consensus"].unique()[0].split(":")
     size = trid_df["likely_denovo_size"].unique()[0]
 
 
     if poi != "unknown":
-        poi = poi if float(support) > 0.75 else "unknown"
+        poi = poi if float(poi_support) > 0.75 else "unknown"
 
+    hoi, _, hoi_support = trid_df["haplotype_in_parent_consensus"].unique()[0].split(":")
+    if hoi != "unknown":
+        hoi = hoi if float(hoi_support) > 0.75 else "unknown"
+
+    precursor_allele_length = trid_df["precursor_allele_length_in_parent"].unique()[0]
+    ref_len = trid_df["end"].unique()[0] - trid_df["start"].unique()[0]
+    precursor_allele_length = precursor_allele_length - ref_len
     chrom, start, end, _ = trid.split("_")
 
     is_male_sex_chrom = "," not in trid_df["child_AL"].unique()[0]
@@ -62,7 +60,6 @@ for (sample, trid, genotype), trid_df in mutations.groupby(
             lambda row: row["child_AL"].split(",")[1 - row["index"]], axis=1
         )
     if trid_df.shape[0] != 1: 
-        print (trid_df)
         continue
 
     mom_diffs, dad_diffs, kid_diffs = [], [], []
@@ -121,16 +118,25 @@ for (sample, trid, genotype), trid_df in mutations.groupby(
             c="firebrick",
             label="Expected allele length (non de novo)",
         )
-    ax.set_ylabel(f"Allele length inferred using {TECH} reads")
+    if precursor_allele_length != -1:
+        ax.axhline(precursor_allele_length, ls="--", c="seagreen", label="Expected precursor allele in parent")
+    ax.set_ylabel(f"Allele length inferred using {snakemake.wildcards.TECH} reads")
     ax.set_xlabel("Sample")
     ax.set_xticks(range(3))
     ax.set_xticklabels(["Kid", "Mom", "Dad"])
     ax.set_title(f"{trid}\nMotif size = {motif_size}\nDNM size = {size}")
+    if abs(exp_non_denovo_diff) > 500 or abs(exp_denovo_diff) > 500:
+        ax.set_yscale("symlog")
     # ax.legend()
     sns.despine(ax=ax)
     f.tight_layout()
     f.savefig(
-        f"fig/denovo/{TECH}.{ASSEMBLY}.{sample}.{trid}.png",
+        f"{snakemake.params.outpref}/{snakemake.wildcards.TECH}.{snakemake.wildcards.ASSEMBLY}.{sample}.{trid}.png",
         dpi=200,
     )
     plt.close()
+
+with open(snakemake.output.fh, "w") as outfh:
+    for l in trid_df["trid"].unique():
+        print (l, file=outfh)
+outfh.close()

@@ -64,8 +64,8 @@ for i, (val, ax) in enumerate(zip(("AL", "AP"), (ax1, ax2))):
     ind = np.arange(v_edges[1:].shape[0])
 
     ax.bar(v_edges[1:], v_hist, v_edges[1:] - v_edges[:-1], ec="w", color="k", lw=1,  zorder=1)
-    rect1 = patches.Rectangle((0, 0), max(v_edges), 1e3, facecolor='green', zorder=-1, alpha=0.1)
-    rect2 = patches.Rectangle((0, 0), min(v_edges), 1e3, facecolor='red', zorder=-1, alpha=0.1)
+    rect1 = patches.Rectangle((0, 0), max(v_edges), 1e3, facecolor='green', zorder=-1, alpha=0.15)
+    rect2 = patches.Rectangle((0, 0), min(v_edges), 1e3, facecolor='red', zorder=-1, alpha=0.15)
 
     # annotate with arrows
     for side in ("less", "more"):
@@ -82,12 +82,7 @@ for i, (val, ax) in enumerate(zip(("AL", "AP"), (ax1, ax2))):
             annotation += f" {side} pure"
         else:
             annotation += " longer" if side == "more" else " shorter"
-        # ax.annotate(
-        #     annotation,
-        #     (lab, 2e2),
-        #     size=8
-            
-        # )
+       
 
     # Add the patch to the axes
     ax.add_patch(rect1)

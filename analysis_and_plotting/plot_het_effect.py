@@ -5,7 +5,7 @@ import numpy as np
 import scipy.stats as ss
 from decimal import Decimal
 
-plt.rc("font", size=12)
+plt.rc("font", size=13)
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
 
@@ -69,14 +69,18 @@ tidy["non_count"] = tidy["total"] - tidy["count"]
 
 # tidy["variable"] = tidy["variable"].apply(lambda v: "Transmitted DNM" if v == "dnm" else "Did not transmit DNM")
 
-f, axarr = plt.subplots(1, 4, figsize=(9, 7), sharex=True, sharey=False)
+f, axarr = plt.subplots(1, 4, figsize=(10, 7), sharex=True, sharey=False)
 
-tr2idx = dict(zip(tidy["TR type"].unique(), range(tidy["TR type"].nunique())))
+motifs = ["homopolymer", "non-homopolymer STR", "VNTR", "complex"]
+
+tr2idx = dict(zip(motifs, range(len(motifs))))
 
 colors = sns.color_palette("colorblind")
 
-for mi, (motif, motif_df) in enumerate(tidy.groupby("TR type")):
+for motif, motif_df in tidy.groupby("TR type"):
+    mi = tr2idx[motif]
     motif_df = motif_df.sort_values("variable", ascending=False)
+
     ax = axarr[tr2idx[motif]]
 
     contingency = motif_df[["count", "non_count"]].values
@@ -86,13 +90,14 @@ for mi, (motif, motif_df) in enumerate(tidy.groupby("TR type")):
 
     vals = motif_df["Fraction of DNMs"]
     top = 1 - vals
-    ax.bar(motif_df["variable"], vals, ec="w", lw=2, label="Heterozygous", color=colors[0])
+    ax.bar(motif_df["variable"], vals, ec="w", lw=2, label="Heterozygous", color="dimgray")
     ax.bar(motif_df["variable"], top, bottom=vals, ec="w", lw=2, label="Homozygous", color="gainsboro")
 
     for vi, v in enumerate(vals):
-        ax.text(vi - 0.1, v / 2, f"{contingency[vi, 0]}", family="monospace", color="w")
-        ax.text(vi - 0.1, v + ((1 - v) / 2.2), f"{contingency[vi, 1]}", family="monospace", color="k")
-    ax.set_xticklabels(["DN", "NDN"])
+        v1, v2 = contingency[vi, 0], contingency[vi, 1]
+        ax.text(vi - (0.05 * len(str(v1))), v / 2, f"{v1}", family="monospace", color="w")
+        ax.text(vi - (0.05 * len(str(v2))), v + ((1 - v) / 2.2), f"{v2}", family="monospace", color="k")
+    ax.set_xticklabels(["PO", "NPO"])
     ax.set_title(f"{motif}\n" + r"$\chi^{2}$" + f" p = {pval}")
     sns.despine(ax=ax, left=mi > 0)
     if mi > 0:
@@ -100,8 +105,8 @@ for mi, (motif, motif_df) in enumerate(tidy.groupby("TR type")):
     if mi == 0:
         ax.set_ylabel("Fraction of loci")
     if mi == 1:
-        ax.set_xlabel("Which allele did this parent transmit?")
+        ax.set_xlabel("")
     
-axarr[0].legend(title="Parental genotype", shadow=True)
+axarr[0].legend(title="Parental genotype", shadow=True, fontsize=14)
 f.tight_layout()
 f.savefig(snakemake.output.png, dpi=200)

@@ -36,6 +36,8 @@ plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
 
 mutations = pd.read_csv(snakemake.input.mutations, sep="\t", dtype={"sample_id": str})
 
+
+
 # get sample IDs so we can filter the denominator files
 sample_ids = mutations["sample_id"].unique()
 print (sample_ids)
@@ -55,6 +57,8 @@ if snakemake.params.rate_per_haplotype:
     denoms["denominator"] *= 2
 denoms = denoms[denoms["sample_id"].isin(sample_ids)]
 
+mutations["simple_motif_size"] = mutations["simple_motif_size"].apply(lambda m: m if m in ("complex", "STR", "VNTR") else "STR")
+
 group_cols = ["simple_motif_size", "overlaps_censat"]
 
 
@@ -66,8 +70,7 @@ per_sample_denoms = (
 per_sample_mutation_counts = (
     mutations.groupby(group_cols).size().reset_index().rename(columns={0: "numerator"})
 )
-print (per_sample_denoms)
-print (per_sample_mutation_counts)
+
 per_sample_rates = per_sample_mutation_counts.merge(per_sample_denoms)
 
 per_sample_rates["rate"] = per_sample_rates["numerator"] / per_sample_rates["denominator"]
@@ -93,11 +96,16 @@ per_sample_rates["overlaps_censat"] = per_sample_rates["overlaps_censat"].replac
     }
 )
 
+per_sample_rates = per_sample_rates.sort_values(["numerator", "simple_motif_size"], ascending=False)
+print (per_sample_rates)
+
+categories = per_sample_rates.drop_duplicates("overlaps_censat")["overlaps_censat"].to_list()
+print (categories)
 f, ax = plt.subplots(figsize=(8, 6))
 per_sample_rates = per_sample_rates.sort_values("rate")
 order2idx = dict(
     zip(
-        per_sample_rates["overlaps_censat"].unique(),
+        categories,
         range(per_sample_rates["overlaps_censat"].nunique()),
     )
 )

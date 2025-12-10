@@ -25,8 +25,9 @@ def calculate_poisson_ci(ct: int, obs: int, alpha: float = 0.95):
     return (rate_lower, rate_upper)
 
 
+
 pd.set_option("display.precision", 8)
-plt.rc("font", size=14)
+plt.rc("font", size=16)
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
 
@@ -49,7 +50,6 @@ denoms = pd.concat(denoms)
 if snakemake.params.rate_per_haplotype:
     denoms["denominator"] *= 2
 denoms = denoms[denoms["sample_id"].isin(sample_ids)]
-
 
 # figure out the total number of BP affected by TRs
 print ("### Total BP affected by TRs")

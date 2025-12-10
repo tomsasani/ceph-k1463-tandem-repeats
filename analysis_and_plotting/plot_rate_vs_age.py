@@ -19,6 +19,7 @@ def get_motif_types(row: pd.Series):
         else:
             return row["simple_motif_size"]
 
+
 pd.set_option("display.precision", 8)
 plt.rc("font", size=14)
 plt.rcParams["font.family"] = "sans-serif"

@@ -29,15 +29,18 @@ TECH = "hifi"
 
 # get mutations
 mutations = []
-for fh in glob.glob(f"csv/orthogonal_support/all/*.{ASSEMBLY}.{TECH}.v4.0.tsv"):
+for fh in glob.glob(f"csv/orthogonal_support/all/*.{ASSEMBLY}.{TECH}.TOPUP.tsv"):
     sample_id = fh.split("/")[-1].split(".")[0]
     df = pd.read_csv(fh, sep="\t")#, dtype={"sample_id": str, "paternal_id": str, "maternal_id": str})
     df["sample_id_with_evidence"] = sample_id
     mutations.append(df)
 mutations = pd.concat(mutations).dropna(subset=["kid_evidence"])
 
-recurrents = pd.read_csv("csv/recurrent/CHM13v2.v4.0.recurrent.tsv", sep="\t")["trid"].to_list()
+
+
+recurrents = pd.read_csv("csv/recurrent/CHM13v2.TOPUP.recurrent.tsv", sep="\t")["trid"].to_list()
 mutations = mutations[mutations["trid"].isin(recurrents)]
+print (mutations["trid"].nunique())
 
 mutations["reference_al"] = mutations["end"] - mutations["start"]
 
@@ -46,7 +49,6 @@ mutations["denovo_al"] = mutations.apply(lambda row: list(map(int, row["child_AL
 
 ped = pd.read_csv("tr_validation/data/file_mapping.csv", dtype={"sample_id": str, "paternal_id": str, "maternal_id": str})
 mutations = mutations.merge(ped, left_on="sample_id_with_evidence", right_on="sample_id", how="left")
-
 # need evidence in all members of pedigree
 count_per_trid = mutations.drop_duplicates(["sample_id_with_evidence", "trid"]).groupby("trid").size().to_dict()
 
@@ -81,12 +83,10 @@ mutations["parent_status"] = mutations["sample_id_with_evidence"].apply(lambda s
 
 for i, (trid, trid_df) in enumerate(mutations.groupby("trid")):
     n_samples = trid_df["sample_id_with_evidence"].nunique()
-    print (n_samples)
     if n_samples != 28: continue
 
     samples_with_denovo = list(map(str, trid_df["sample_id_x"].unique()))
-    print (samples_with_denovo)
-    if not all([s.startswith("200") for s in samples_with_denovo]): continue
+    # if not all([s.startswith("200") for s in samples_with_denovo]): continue
     res = []
 
     # gather diffs in all members of the trio

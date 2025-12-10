@@ -6,6 +6,11 @@ import glob
 import scipy.stats as ss
 import tqdm
 
+def check_phasing_quality(p: str):
+    poi, n_inf, support = p.split(":")
+    return float(support) >= 0.75
+    
+
 
 plt.rc("font", size=12)
 plt.rcParams["font.family"] = "sans-serif"
@@ -14,12 +19,34 @@ plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
 mutations = pd.read_csv(snakemake.input.mutations, sep="\t", dtype={"paternal_id": str})
 
 phased = mutations[mutations["phase"] != "unknown"]
+
 hap_phased = phased[~phased["haplotype_in_parent_consensus"].str.contains("unknown")]
+
+hap_phased["pass"] = hap_phased["haplotype_in_parent_consensus"].apply(lambda s: check_phasing_quality(s))
+hap_phased = hap_phased[hap_phased["pass"] == True]
 
 matching = hap_phased[hap_phased["likely_denovo_size"] == hap_phased["likely_denovo_size_parsimony"]]
 matching["Both methods agree?"] = "Yes" + f" (n = {matching.shape[0]})"
 different = hap_phased[hap_phased["likely_denovo_size"] != hap_phased["likely_denovo_size_parsimony"]]
 different["Both methods agree?"] = "No" f" (n = {different.shape[0]})"
+
+print(
+    different[different["sample_id"] == 2211][
+        [
+            "#chrom",
+            "start",
+            "end",
+            "index",
+            "child_AL",
+            "father_AL",
+            "mother_AL",
+            "likely_denovo_size",
+            "likely_denovo_size_parsimony",
+            "haplotype_in_parent_consensus",
+            "phase_consensus",
+        ]
+    ]
+)
 
 both = pd.concat([different, matching])
 
