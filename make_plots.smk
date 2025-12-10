@@ -26,7 +26,10 @@ rule all:
             "censat_rate", 
             "motif_sizes",
             "motif_rate",
-            ], ASSEMBLY=ASSEMBLIES)
+            ], ASSEMBLY=ASSEMBLIES),
+        expand("plots/vntrs/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt", ASSEMBLY=ASSEMBLIES, TECH=["hifi"], TOPUP=["TOPUP"]),
+        expand("plots/svs/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt", ASSEMBLY=ASSEMBLIES, TECH=["hifi"], TOPUP=["TOPUP"]),
+        expand("plots/orthogonal_validation.{ASSEMBLY}.{TECH}.{TOPUP}.png", ASSEMBLY=ASSEMBLIES, TECH=["element"], TOPUP=["TOPUP"])
 
 
 rule filter_denovos:
@@ -39,7 +42,7 @@ rule filter_denovos:
         csv = "csv/filtered_for_plots/{ASSEMBLY}.{TOPUP}.tsv"
     params:
         filter_by_transmission = False,
-        filter_by_grandparents = False,
+        filter_by_grandparents = True,
         filter_by_orthogonal = True,
         filter_by_recurrent = True,
     script:
@@ -98,7 +101,8 @@ rule plot_motif_sizes:
         mutations = "csv/filtered_for_plots/{ASSEMBLY}.{TOPUP}.tsv",
         akshay = "data/K1463.CHM13v2.DNMs.416.demintr.output",
     output:
-        png = "plots/motif_sizes.{ASSEMBLY}.{TOPUP}.png"
+        by_motif = "plots/motif_sizes.{ASSEMBLY}.{TOPUP}.png",
+        by_tr_type = "plots/tr_type_sizes.{ASSEMBLY}.{TOPUP}.png"
     script:
         "analysis_and_plotting/plot_dnm_motif_sizes.py"
 
@@ -123,3 +127,45 @@ rule plot_rate_by_motif:
         rate_per_haplotype = True
     script:
         "analysis_and_plotting/plot_rate_vs_motif.py"
+
+
+rule plot_read_evidence_vntr:
+    input:
+        mutations = expand("csv/annotated/{SAMPLE}.{{ASSEMBLY}}.{{TECH}}.{{TOPUP}}.tsv", SAMPLE=CHILDREN),
+        recurrent = "csv/recurrent/{ASSEMBLY}.{TOPUP}.recurrent.tsv"
+    output:
+        fh = "plots/vntrs/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt"
+    params:
+        minimum_motif_size = 7,
+        minimum_dnm_size = 1,
+        outpref = "plots/vntrs"
+    script:
+        "analysis_and_plotting/plot_read_evidence.py"
+
+
+rule plot_read_evidence_svs:
+    input:
+        mutations = expand("csv/annotated/{SAMPLE}.{{ASSEMBLY}}.{{TECH}}.{{TOPUP}}.tsv", SAMPLE=CHILDREN),
+        recurrent = "csv/recurrent/{ASSEMBLY}.{TOPUP}.recurrent.tsv"
+    output:
+        fh = "plots/svs/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt"
+    params:
+        minimum_motif_size = 1,
+        minimum_dnm_size = 50,
+        outpref = "plots/svs"
+    script:
+        "analysis_and_plotting/plot_read_evidence.py"
+
+
+rule plot_read_evidence_homopolymers:
+    input:
+        mutations = expand("csv/annotated/{SAMPLE}.{{ASSEMBLY}}.{{TECH}}.{{TOPUP}}.tsv", SAMPLE=CHILDREN),
+        recurrent = "csv/recurrent/{ASSEMBLY}.{TOPUP}.recurrent.tsv",
+        censat = "data/t2t.censat.bed"
+    output:
+        png = "plots/orthogonal_validation.{ASSEMBLY}.{TECH}.{TOPUP}.png"
+    params:
+        minimum_motif_size = 7
+    script:
+        "analysis_and_plotting/calculate_orthogonal_validation.py"
+        
