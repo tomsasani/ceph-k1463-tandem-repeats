@@ -133,12 +133,6 @@ def find_informative_sites_in_parents(
         # make sure parents don't have the same genotype.
         if dad_gt == mom_gt: continue
         if not (sample_pass(v, mom_idx) and sample_pass(v, dad_idx)): continue
-        # if dad_gt == 3:
-        #     if not sample_pass(v, mom_idx) or mom_gt not in (0, 2): 
-        #         continue
-        # if mom_gt == 3: 
-        #     if not sample_pass(v, dad_idx) or dad_gt not in (0, 2):
-        #         continue
         # create namedtuple object with information about this site
         InfSite = namedtuple("InfSite", "chrom pos dad_gt mom_gt")
         inf_site = InfSite(v.CHROM, v.POS, dad_gt, mom_gt)
@@ -265,20 +259,20 @@ def plot_phasing(df: pd.DataFrame):
 
 
 
-def main(args):
+def main():
 
     # read in child's TRGT STR VCF (must be phased with HiPhase)
-    KID_STR_VCF = VCF(args.str_vcf)
+    KID_STR_VCF = VCF(snakemake.input.kid_phased_str_vcf)
     # read in an SNV VCF with genotypes in (at least) the child's trio.
-    COHORT_SNP_VCF = VCF(args.cohort_snp_vcf, gts012=True)
-    KID_PHASED_SNP_VCF = VCF(args.kid_phased_snp_vcf, gts012=True)
+    COHORT_SNP_VCF = VCF(snakemake.input.cohort_snp_vcf, gts012=True)
+    KID_PHASED_SNP_VCF = VCF(snakemake.input.kid_phased_snp_vcf, gts012=True)
 
     KID_STR_SMP2IDX = dict(
         zip(KID_STR_VCF.samples, range(len(KID_STR_VCF.samples))))
-    kid_str_idx = KID_STR_SMP2IDX[args.focal_alt]
+    kid_str_idx = KID_STR_SMP2IDX[snakemake.params.focal_alt_id]
 
     # read in mutations and validate schema
-    mutations = pd.read_csv(args.mutations, sep="\t", dtype={"sample_id": str})
+    mutations = pd.read_csv(snakemake.input.kid_mutation_df, sep="\t", dtype={"sample_id": str})
     TRGTDeNovoSchema.validate(mutations)
 
     res: List = []
@@ -308,7 +302,7 @@ def main(args):
         denovo_al = child_als[denovo_idx]
 
         # define the bounds of the region in which we'll search for informative sites
-        phase_start, phase_end = trid_start - args.slop, trid_end + args.slop
+        phase_start, phase_end = trid_start - snakemake.params.slop, trid_end + snakemake.params.slop
         if phase_start < 1: phase_start = 1
 
         # collate informative SNV sites within a defined region surrounding the
@@ -317,9 +311,9 @@ def main(args):
         informative_sites = find_informative_sites_in_parents(
             vcf=COHORT_SNP_VCF,
             region=f"{trid_chrom}:{phase_start}-{phase_end}",
-            dad=args.dad_id,
-            mom=args.mom_id,
-            child=args.focal_alt,
+            dad=snakemake.params.dad_id,
+            mom=snakemake.params.mom_id,
+            child=snakemake.params.focal_alt_id,
             smp2idx=dict(
                 zip(COHORT_SNP_VCF.samples,
                     range(len(COHORT_SNP_VCF.samples))), ),
@@ -339,7 +333,7 @@ def main(args):
             smp2idx=dict(
                 zip(KID_PHASED_SNP_VCF.samples,
                     range(len(KID_PHASED_SNP_VCF.samples))), ),
-            child=args.focal_alt,
+            child=snakemake.params.focal_alt_id,
         )
         if informative_sites_phased.shape[0] == 0:
             continue
@@ -434,60 +428,8 @@ def main(args):
             "str_parent_of_origin": "unknown",
         })
 
-    merged.to_csv(args.out, index=False, sep="\t")
+    merged.to_csv(snakemake.output.out, index=False, sep="\t")
 
 
 if __name__ == "__main__":
-    p = argparse.ArgumentParser()
-    p.add_argument(
-        "--mutations",
-        required=True,
-        help="""TSV file containing TRGT-denovo output for the child with candidate DNMs""",
-    )
-    p.add_argument(
-        "--cohort_snp_vcf",
-        required=True,
-        help="""VCF file containing SNV genotypes for (at least) the child's corresponding trio.""",
-    )
-    p.add_argument(
-        "--kid_phased_snp_vcf",
-        required=True,
-        help="""VCF file containing SNV genotypes for (at least) the child's corresponding trio.""",
-    )
-    p.add_argument(
-        "--focal",
-        required=True,
-        help="""sample ID for the child (CEPH LABID)""",
-    )
-    p.add_argument(
-        "--focal_alt", required=True, help="""sample ID for the child (Coriell ID)"""
-    )
-    p.add_argument(
-        "--out",
-        required=True,
-        help="""name of output TSV file.""",
-    )
-    p.add_argument(
-        "--str_vcf",
-        required=True,
-        help="""VCF file containing STR genotypes in the child. must be phased with HiPhase.""",
-    )
-    p.add_argument(
-        "--dad_id",
-        required=True,
-        help="""Coriell ID of father in trio.""",
-    )
-    p.add_argument(
-        "--mom_id",
-        required=True,
-        help="""Coriell ID of mother in trio""",
-    )
-    p.add_argument(
-        "-slop",
-        default=200_000,
-        required=False,
-        type=int,
-        help="""how many base pairs upstream and downstream of the candidate STR DNM to look for informative sites for parent-of-origin inference.""",
-    )
-    args = p.parse_args()
-    main(args)
+    main()

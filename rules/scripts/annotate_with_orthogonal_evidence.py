@@ -312,7 +312,7 @@ for i, row in tqdm.tqdm(mutations.iterrows()):
     # if any members of the trio had fewer than 10 "good" reads,
     # AND we passed in BAM files for everyone, skip
     skip = False
-    for b, k in zip((snakemake.params.kid_bam, snakemake.params.mom_bam, snakemake.params.dad_bam), ("kid_evidence", "mom_evidence", "dad_evidence"),):
+    for b, k in zip((snakemake.params.kid_bam, snakemake.params.mom_bam, snakemake.params.dad_bam,), ("kid_evidence", "mom_evidence", "dad_evidence"),):
         if b is not None and bam_evidence[k] is None:
             skip = True
     if skip: continue

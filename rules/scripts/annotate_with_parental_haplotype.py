@@ -8,22 +8,22 @@ from collections import namedtuple
 from schema import InformativeSiteSchema
 import utils
 
-def main(args):
+def main():
 
     # read in dataframe with informative sites for every candidate DNM
     dtypes = utils.DTYPES.copy()
     dtypes.update({"sample_id": "string"})
 
     informative_sites = pd.read_csv(
-        args.annotated_dnms, sep="\t", dtype=dtypes,
+        snakemake.input.annotated_dnms, sep="\t", dtype=dtypes,
     )
     InformativeSiteSchema.validate(informative_sites)
 
     # file handles for (p/m)aternal SNV and STR VCFs (phased)
-    dad_str_vcf = VCF(args.dad_phased_str_vcf)
-    dad_snv_vcf = VCF(args.dad_phased_snv_vcf)
-    mom_str_vcf = VCF(args.mom_phased_str_vcf)
-    mom_snv_vcf = VCF(args.mom_phased_snv_vcf)
+    dad_str_vcf = VCF(snakemake.input.dad_phased_str_vcf)
+    dad_snv_vcf = VCF(snakemake.input.dad_phased_snv_vcf)
+    mom_str_vcf = VCF(snakemake.input.mom_phased_str_vcf)
+    mom_snv_vcf = VCF(snakemake.input.mom_phased_snv_vcf)
 
     res = []
 
@@ -130,35 +130,8 @@ def main(args):
             "haplotype_in_parent": "unknown",
         }
     )
-    res_df.to_csv(args.out, sep="\t", index=False)
+    res_df.to_csv(snakemake.output.out, sep="\t", index=False)
 
 
 if __name__ == "__main__":
-    p = argparse.ArgumentParser()
-    p.add_argument(
-        "--annotated_dnms",
-        required=True,
-        help="""TSV file containing DNM calls with one or more informative site annotations. \
-            each DNM will be represented by as many rows as there were informative sites.""",
-    )
-    p.add_argument(
-        "--dad_id",
-        required=True,
-        help="""LAB ID of father""",
-    )
-    p.add_argument("--dad_phased_str_vcf", required=True)
-    p.add_argument("--dad_phased_snv_vcf", required=True)
-    p.add_argument("--mom_phased_str_vcf", required=True)
-    p.add_argument("--mom_phased_snv_vcf", required=True)
-    p.add_argument(
-        "--mom_id",
-        required=True,
-        help="""LAB ID of mother""",
-    )
-    p.add_argument(
-        "--out",
-        required=True,
-        help="""name of TSV outfile""",
-    )
-    args = p.parse_args()
-    main(args)
+    main()

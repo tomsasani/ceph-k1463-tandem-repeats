@@ -1,5 +1,7 @@
 import pandas as pd
 from cyvcf2 import VCF
+from snakemake.script import snakemake
+
 
 mutations = pd.read_csv(snakemake.input.annotated_dnms, sep="\t")
 
@@ -31,7 +33,7 @@ for i, row in mutations.iterrows():
 
     # depending on the parent of origin at this DNM, decide which
     # parental VCF we'll use to query for allele sequence information
-    parent_of_origin, poi_inf, poi_support = row["phase_consensus"].split(":")
+    parent_of_origin, n_inf, poi_support = row["phase_consensus"].split(":")
 
     if parent_of_origin == "dad":
         vcf2query = dad_vcf
@@ -52,7 +54,7 @@ for i, row in mutations.iterrows():
 
     # check to see if we were able to confidently infer which parental
     # haplotype the de novo mutation occurred on
-    informative_haplotype, hoi_inf, hoi_support = row["haplotype_in_parent_consensus"].split(":")
+    informative_haplotype, n_inf, hoi_support = row["haplotype_in_parent_consensus"].split(":")
 
     if informative_haplotype == "unknown":
         out_dict.update(
