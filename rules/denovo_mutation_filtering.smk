@@ -3,7 +3,6 @@ import glob
 
 CUR_PREF = "/scratch/ucgd/lustre-labs/quinlan/u1006375/CEPH-K1463-TandemRepeats/"
 
-
 wildcard_constraints:
     SAMPLE = r"[0-9]{4,6}",
     ASSEMBLY = "GRCh38|CHM13v2",
@@ -34,6 +33,7 @@ for fh in glob.glob(HPRC_PREF + "GRCh38_v1.0_50bp_merge/1.1.2-69937d83/hprc/*.vc
     if sample_id == "hprc": continue
     HPRC_SAMPLES.append(sample_id)
 
+
 def get_bam_for_validation(sample, assembly, tech):
 
     assembly_adj = assembly.split('v2')[0]
@@ -47,6 +47,7 @@ def get_bam_for_validation(sample, assembly, tech):
         }
 
     return tech2path[tech]
+
 
 def get_children_vcfs(wildcards):
     if wildcards.SAMPLE == "2216":
@@ -70,8 +71,8 @@ def get_grandparent_vcfs(wildcards):
 
 def get_annotation_fh(wildcards):
     if wildcards.ASSEMBLY == "GRCh38":
-        # return "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/TRGT/from_aws/staging/catalogs/human_GRCh38_no_alt_analysis_set.palladium-v1.0.trgt.annotations.bed.gz"
-        return "data/gangstr.annotations.bed.gz"
+        return "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/TRGT/from_aws/staging/catalogs/human_GRCh38_no_alt_analysis_set.palladium-v1.0.trgt.annotations.bed.gz"
+        #return "data/gangstr.annotations.bed.gz"
     elif wildcards.ASSEMBLY == "CHM13v2":
         return "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/TRGT/from_aws/staging/catalogs/chm13v2.0_maskedY_rCRS.palladium-v1.0.trgt.annotations.bed.gz"
 
@@ -82,17 +83,19 @@ rule combine_trgt_denovo:
     output: fh = "csv/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.trgt-denovo.csv"
     shell:
         """
-        
         grep '^chrom' {input.fhs[0]} > {output.fh}
 
         cat {input.fhs} | grep -v '^chrom'  >> {output.fh}
         """
 
+
 rule prefilter_all_loci:
     input:
         kid_mutation_df = "csv/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.trgt-denovo.csv",
         ped = "tr_validation/data/file_mapping.csv",
-        annotations = lambda wildcards: get_annotation_fh(wildcards)
+        annotations = lambda wildcards: get_annotation_fh(wildcards),
+        utils = "rules/scripts/utils.py"
+
     output: 
         fh = "csv/prefiltered/all_loci/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
     params:
@@ -108,6 +111,7 @@ rule prefilter_denovos:
         ped = "tr_validation/data/file_mapping.csv",
         kid_mutation_df = "csv/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.trgt-denovo.csv",
         annotations = lambda wildcards: get_annotation_fh(wildcards),
+        utils = "rules/scripts/utils.py"
     output: 
         fh = "csv/prefiltered/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
     params:
@@ -127,7 +131,6 @@ rule calculate_denominator:
         "scripts/calculate_denominator.py"
 
 
-
 rule annotate_with_informative_sites:
     input:
         cohort_snp_vcf = "data/vcf/trios/merged/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.vcf.gz",
@@ -144,24 +147,14 @@ rule annotate_with_informative_sites:
         dad_id = lambda wildcards: SMP2ALT[SMP2DAD[wildcards.SAMPLE]],
         mom_id = lambda wildcards: SMP2ALT[SMP2MOM[wildcards.SAMPLE]],
         focal_alt_id = lambda wildcards: SMP2ALT[wildcards.SAMPLE],
-    shell:
-        """
-        python {input.py_script} --cohort_snp_vcf {input.cohort_snp_vcf} \
-                                 --kid_phased_snp_vcf {input.kid_phased_snp_vcf} \
-                                 --focal_alt {params.focal_alt_id} \
-                                 --focal {wildcards.SAMPLE} \
-                                 --out {output.out} \
-                                 --mutations {input.kid_mutation_df} \
-                                 --str_vcf {input.kid_phased_str_vcf} \
-                                 --dad_id {params.dad_id} \
-                                 --mom_id {params.mom_id} \
-                                 -slop 500000
-        """
+        slop = 500_000
+    script:
+        "scripts/annotate_with_informative_sites.py"
+        
 
 
 rule annotate_with_parental_haplotype:
     input:
-        py_script = "rules/scripts/annotate_with_parental_haplotype.py",
         annotated_dnms = "csv/phasing/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.annotated.2gen.tsv",
         dad_phased_str_vcf = lambda wildcards: f"data/trgt/phased/{SMP2DAD[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz",
         dad_phased_str_vcf_idx = lambda wildcards: f"data/trgt/phased/{SMP2DAD[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz.tbi",
@@ -176,17 +169,8 @@ rule annotate_with_parental_haplotype:
     params:
         dad_id = lambda wildcards: SMP2ALT[SMP2DAD[wildcards.SAMPLE]],
         mom_id = lambda wildcards: SMP2ALT[SMP2MOM[wildcards.SAMPLE]],
-    shell:
-        """
-        python {input.py_script} --annotated_dnms {input.annotated_dnms} \
-                                 --dad_phased_str_vcf {input.dad_phased_str_vcf} \
-                                 --dad_phased_snv_vcf {input.dad_phased_snv_vcf} \
-                                 --mom_phased_str_vcf {input.mom_phased_str_vcf} \
-                                 --mom_phased_snv_vcf {input.mom_phased_snv_vcf} \
-                                 --out {output.out} \
-                                 --dad_id {params.dad_id} \
-                                 --mom_id {params.mom_id} \
-        """
+    script:
+        "scripts/annotate_with_parental_haplotype.py"
 
 
 rule phase:
@@ -199,6 +183,18 @@ rule phase:
         python {input.py_script} --annotated_dnms {input.annotated_dnms} \
                                  --out {output}
         """
+
+
+rule phase_three_gen:
+    input:
+        mutation_df = "csv/filtered_and_merged/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv",
+        cohort_vcf = "data/vcf/snv/CHM13v2.TOPUP.cohort.vcf.gz"
+    output:
+        tsv = "csv/phasing/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.phased.3gen.tsv"
+    params:
+        slop = 250_000
+    script:
+        "scripts/phase_three_gen.py"
 
 
 rule annotate_with_parental_alleles:
@@ -246,11 +242,13 @@ rule combine_raw_dnms:
 
 rule validate_all_with_orthogonal_tech:
     input:
-        mutation_df = "csv/all_dnms/{ASSEMBLY}.{USE_NEW_BAM}.tsv"
+        mutations = "csv/all_dnms/{ASSEMBLY}.{USE_NEW_BAM}.tsv"
     output: fh = "csv/orthogonal_support/all/{SAMPLE}.{ASSEMBLY}.{TECH}.{USE_NEW_BAM}.tsv",
     params:
         kid_bam = lambda wildcards: get_bam_for_validation(wildcards.SAMPLE, wildcards.ASSEMBLY, wildcards.TECH),
-    shell:
+        mom_bam = None,
+        dad_bam = None,
+    script:
         "scripts/annotate_with_orthogonal_evidence.py"
 
 
@@ -295,8 +293,10 @@ rule merge_all_dnm_files:
         phasing = "csv/phasing/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.allele_sequences.tsv",
         denominator = "csv/denominators/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.denominator.tsv",
         transmission = "csv/transmission/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv",
-        grandparental = "csv/grandparents/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
+        grandparental = "csv/grandparents/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv",
+        utils = "rules/scripts/utils.py"
     output: out = "csv/filtered_and_merged/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
+    params: phase_threshold = 1.0
     script:
         "scripts/merge_mutations_with_metadata.py"
 
