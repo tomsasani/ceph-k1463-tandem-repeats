@@ -10,9 +10,9 @@ ASSEMBLY2REF = {
     }
 
 ASSEMBLY2CATALOG = {
-    # "GRCh38": "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/TRGT/from_aws/staging/catalogs/human_GRCh38_no_alt_analysis_set.palladium-v1.0.trgt.bed.gz",
+    "GRCh38": "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/TRGT/from_aws/staging/catalogs/human_GRCh38_no_alt_analysis_set.palladium-v1.0.trgt.bed.gz",
     "CHM13v2": "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/TRGT/from_aws/staging/catalogs/chm13v2.0_maskedY_rCRS.palladium-v1.0.trgt.bed.gz",
-    "GRCh38": "data/gangstr.trgt_formatted.bed.gz"
+    # "GRCh38": "data/gangstr.trgt_formatted.bed.gz"
     }
 
 

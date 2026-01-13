@@ -18,10 +18,13 @@ ALL_SAMPLES = ped["sample_id"].to_list()
 ASSEMBLIES = ["CHM13v2"]
 
 
+
+
 rule all:
     input:
         expand("csv/filtered_and_merged/{SAMPLE}.{ASSEMBLY}.TOPUP.tsv", SAMPLE=CHILDREN, ASSEMBLY=ASSEMBLIES),
         expand("csv/denominators/{SAMPLE}.{ASSEMBLY}.TOPUP.denominator.tsv", SAMPLE=CHILDREN, ASSEMBLY=ASSEMBLIES),
         expand("csv/annotated/{SAMPLE}.{ASSEMBLY}.{TECH}.TOPUP.tsv", SAMPLE=CHILDREN, ASSEMBLY=ASSEMBLIES, TECH=["element", "hifi"]),
         expand("csv/recurrent/{ASSEMBLY}.TOPUP.recurrent.tsv", ASSEMBLY=ASSEMBLIES),
-        expand("csv/orthogonal_support/all/{SAMPLE}.{ASSEMBLY}.{TECH}.TOPUP.tsv", SAMPLE=ALL_SAMPLES, ASSEMBLY=ASSEMBLIES, TECH=["hifi"])
+        expand("csv/orthogonal_support/all/{SAMPLE}.{ASSEMBLY}.{TECH}.TOPUP.tsv", SAMPLE=ALL_SAMPLES, ASSEMBLY=ASSEMBLIES, TECH=["hifi"]),
+        expand("csv/phasing/{SAMPLE}.{ASSEMBLY}.TOPUP.phased.3gen.tsv", SAMPLE=["2216", "2189"], ASSEMBLY=ASSEMBLIES)

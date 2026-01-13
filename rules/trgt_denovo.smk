@@ -23,8 +23,6 @@ rule run_trgt_denovo:
     resources:
         mem_mb = 32_000,
         runtime = 720,
-        slurm_account = "ucgd-rw",
-        slurm_partition = "ucgd-rw"
     params:
         kid_pref = lambda wildcards: CUR_PREF + f"data/trgt/per-chrom/{wildcards.SAMPLE}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.{wildcards.CHROM}",
         mom_pref = lambda wildcards: CUR_PREF + f"data/trgt/per-chrom/{SMP2MOM[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.{wildcards.CHROM}",
