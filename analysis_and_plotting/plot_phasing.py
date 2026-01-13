@@ -9,28 +9,24 @@ plt.rc("font", size=10)
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
 
-ASSEMBLY = "GRCh38"
+ASSEMBLY = "CHM13v2"
 
-mutations = pd.read_csv(f"{ASSEMBLY}.filtered.tsv", dtype={"sample_id": str, "paternal_id": str}, sep="\t")
+mutations = pd.read_csv(f"csv/filtered_for_plots/{ASSEMBLY}.TOPUP.tsv", dtype={"sample_id": str, "paternal_id": str}, sep="\t")
 
 mutations["generation"] = mutations["sample_id"].apply(lambda s: "G4A" if s.startswith("2000") else "G4B" if s.startswith("2001") else "G3")
 
-mutations["is_phased"] = ~mutations["phase"].str.contains("unknown")
+print (mutations.groupby("phase").size())
 
-mutations = mutations[~mutations["phase"].str.contains("unknown")]
-print (mutations)
-
-# mutations["is_phased"] = ~mutations["haplotype_in_parent_consensus"].str.contains("unknown")
 bs = []
-# for trial in range(100):
-    # _mutations = mutations.sample(frac=1, replace=True)
 
 counts = mutations.groupby(["sample_id", "generation", "phase"]).size().reset_index().rename(columns={0: "count"})
 totals = counts.groupby(["sample_id"]).agg(total=("count", "sum")).reset_index()
 counts = counts.merge(totals)
+print (counts.query("phase != 'unknown'")["count"].sum())
 counts = counts[counts["phase"] == "dad"]
 counts["frac"] = counts["count"] / counts["total"]
 # counts["trial"] = trial
+print (counts["total"].sum())
 
 # bs.append(counts)
 # bs = pd.concat(bs)

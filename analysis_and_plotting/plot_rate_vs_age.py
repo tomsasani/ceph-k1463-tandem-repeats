@@ -60,6 +60,7 @@ sample_totals = sample_counts.groupby(["sample_id"]).agg(total=("count", "sum"))
 sample_counts = sample_counts.merge(sample_totals)
 
 sample_counts.rename(columns={"phase": "Parent-of-origin"}, inplace=True)
+sample_counts.replace(to_replace={"dad": "Paternal", "mom": "Maternal"}, inplace=True)
 
 f, axarr = plt.subplots(2, 2, sharex=True, sharey=True, figsize=(8, 8))
 tr2idx = dict(zip(sample_counts["TR type"].unique(), [(0, 0), (0, 1), (1, 0), (1, 1)]))
@@ -74,7 +75,7 @@ for tr, tr_df in sample_counts.groupby("TR type"):
         ax.set_ylabel("Number of DNMs")
     ax.set_title(tr)
     for par_i, (par, par_df) in enumerate(tr_df.groupby("Parent-of-origin")):
-        age_col = "PaAge" if par == "dad" else "MaAge"
+        age_col = "PaAge" if par == "Paternal" else "MaAge"
         formula = f"count ~ {age_col}"
         mod = smf.glm(
             formula=formula,
@@ -89,7 +90,7 @@ for tr, tr_df in sample_counts.groupby("TR type"):
         df_predictions = predictions.summary_frame(alpha=0.05) # 95% confidence interval
         df_predictions[age_col] = par_df[age_col].values
         df_predictions.sort_values(age_col, ascending=True, inplace=True)
-        if par == "dad" and tr == "non-homopolymer STR":
+        if par == "Paternal" and tr == "non-homopolymer STR":
             print (mod.summary())
 
         ax.scatter(
@@ -116,7 +117,6 @@ for tr, tr_df in sample_counts.groupby("TR type"):
             df_predictions["mean"],
             color=colors[par_i],
             zorder=0
-
         )
     sns.despine(ax=ax)
 axarr[1, 0].legend(shadow=True, title="Parent-of-origin")
