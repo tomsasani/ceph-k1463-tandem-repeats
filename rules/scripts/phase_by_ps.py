@@ -11,7 +11,6 @@ import utils
 def measure_consistency(
     df: pd.DataFrame,
     columns: List[str],
-    plot: bool = False,
 ) -> pd.DataFrame:
     """given a dataframe that contains information about informative sites
     surrounding a candidate DNM, find the longest stretch of 'consistent'
@@ -55,8 +54,6 @@ def main(args):
 
     res = []
 
-    plot = False
-
     # get a dataframe with N rows for each DNM. each of the N rows
     # represents a single informative site
     for (
@@ -86,9 +83,8 @@ def main(args):
 
         # otherwise, we have to use informative sites
         else:
+            poi, poi_inf, poi_support = measure_consistency(df, "str_parent_of_origin")
 
-            poi, poi_inf, poi_support = measure_consistency(df, "str_parent_of_origin", plot=True if plot is False else False)
-            plot = True
             # these sites have to be the same as the ones for which the parent of origin is consistent
             hap_sites = df[(df["haplotype_in_parent"] != "unknown") & (df["str_parent_of_origin"] == poi)]
             if hap_sites.shape[0] == 0:
@@ -96,7 +92,6 @@ def main(args):
             else:
                 hoi, hoi_inf, hoi_support = measure_consistency(hap_sites, "haplotype_in_parent")
 
-        
         df["phase_consensus"] = f"{poi}:{poi_inf}:{poi_support}"
         df["haplotype_in_parent_consensus"] = f"{hoi}:{hoi_inf}:{hoi_support}"
 
@@ -117,7 +112,6 @@ def main(args):
             ]
         )
     )
-    print (res_df.shape)
 
     res_df.to_csv(args.out, sep="\t", index=False)
 
