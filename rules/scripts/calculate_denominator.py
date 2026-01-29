@@ -30,7 +30,7 @@ raw_loci = pd.read_csv(snakemake.input.loci, sep="\t")
 if snakemake.wildcards.ASSEMBLY == "CHM13v2":
     raw_loci["overlaps_censat"] = raw_loci.apply(lambda row: annotate_with_censat(row, censat), axis=1)
 else:
-    raw_loci["overlaps_censat"] = 0
+    raw_loci["overlaps_censat"] = "no"
 
 raw_loci["is_complex"] = raw_loci["n_motifs"] > 1
 
@@ -47,7 +47,7 @@ raw_loci["reflen_bin"] = bins
 raw_loci["aff_bp"] = raw_loci["end"] - raw_loci["start"]
 total_bp = raw_loci.groupby("simple_motif_size").agg(total_aff_bp = ("aff_bp", "sum")).reset_index()
 
-GROUP_COLS = ["sample_id", "motif_size", "simple_motif_size", "overlaps_censat", "is_complex", "#chrom"]
+GROUP_COLS = ["sample_id", "min_motiflen", "simple_motif_size", "overlaps_censat", "is_complex", "#chrom"]
 
 res = []
 # loop over samples grouped by motif size to start
@@ -67,7 +67,7 @@ for (
     res.append(
         {
             "sample_id": sample_id,
-            "motif_size": motif_size,
+            "min_motiflen": motif_size,
             "simple_motif_size": simple_motif_size,
             "overlaps_censat": in_censat,
             "is_complex": is_complex,

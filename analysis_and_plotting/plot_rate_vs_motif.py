@@ -31,7 +31,6 @@ plt.rc("font", size=16)
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
 
-
 mutations = pd.read_csv(snakemake.input.mutations, sep="\t", dtype={"sample_id": str})
 
 # get sample IDs so we can filter the denominator files
@@ -120,7 +119,7 @@ mutations["reflen_bin"] = bins.astype(str)
 def plot_mutation_rate_vs(
     mutations: pd.DataFrame,
     denoms: pd.DataFrame,
-    colname: str = "motif_size",
+    colname: str = "min_motiflen",
     plot_strs: bool = False,
     outname: str = "out.png",
     include_labels: bool = True,
@@ -162,7 +161,7 @@ def plot_mutation_rate_vs(
     )
 
     # plot rates across samples
-    if colname == "motif_size":
+    if colname == "min_motiflen":
         f, ax1 = plt.subplots(figsize=(14, 7))
     else:
         f, ax1 = plt.subplots(figsize=(11, 5))
@@ -187,7 +186,7 @@ def plot_mutation_rate_vs(
 
     # subplot for per-motif type rates
     # group by more straightforward motif size definition
-    if colname == "motif_size":
+    if colname == "min_motiflen":
         per_col_denoms_simple = (
             denoms.groupby("simple_motif_size")
             .agg({"denominator": "sum"})
@@ -223,7 +222,7 @@ def plot_mutation_rate_vs(
         # ax2.set_xticklabels(per_col_rates_simple["simple_motif_size"].to_list())
         ax_denom.set_ylabel("Total number of loci in reference genome", c="darkgrey")
 
-        if colname == "motif_size":
+        if colname == "min_motiflen":
             ax1.set_xlabel("Minimum motif size in locus (bp)")
         else:
             ax1.set_xlabel("Length of reference allele (bp)")
@@ -236,7 +235,7 @@ def plot_mutation_rate_vs(
 plot_mutation_rate_vs(
     mutations,
     denoms,
-    colname="motif_size",
+    colname="min_motiflen",
     plot_strs=False,
     include_labels=True,
     outname=snakemake.output.png,

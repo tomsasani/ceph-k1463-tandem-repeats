@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from FAILING_TRIDS import FAIL_VNTRS, FAIL_SVS
+from analysis_and_plotting.FAILING_TRIDS import FAIL_VNTRS, FAIL_SVS
 
 import utils
 
@@ -63,8 +63,8 @@ mutations = filtered_denovos.merge(phasing)
 def check_phase(p):
     if "unknown" in p: return "unknown"
     else:
-        inf, support = list(map(float, p.split(":")[1:]))
-        if support < 0.8 or inf < 1:
+        n_inf, support = list(map(float, p.split(":")[1:]))
+        if n_inf < 1:# or support < snakemake.params.phase_threshold:
             return "unknown"
         else:
             return p.split(":")[0]
@@ -82,9 +82,9 @@ mutations["likely_denovo_size"] = mutations.apply(
 
 # if we 're not at a homopolymer, ensure that the likely de novo size is at least 2 bp
 mutations = mutations[
-    (mutations["motif_size"].isin([-1, 1])) | (mutations["likely_denovo_size"].abs() >= 2)
+    (mutations["min_motiflen"] == 1) | (mutations["likely_denovo_size"].abs() >= 2)
 ]
-assert mutations.query("motif_size > 1 and likely_denovo_size == 1").shape[0] == 0
+assert mutations.query("min_motiflen > 1 and likely_denovo_size == 1").shape[0] == 0
 
 mutations = mutations[mutations["likely_denovo_size"] != 0]
 mutations = mutations[mutations["likely_denovo_size"].abs() >= mutations["min_motiflen"]]

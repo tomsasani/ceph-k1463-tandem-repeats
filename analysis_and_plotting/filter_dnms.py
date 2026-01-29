@@ -39,7 +39,7 @@ mutations = mutations[~mutations["trid"].isin(FAIL_SVS)]
 if snakemake.wildcards.ASSEMBLY == "CHM13v2":
     mutations["overlaps_censat"] = mutations.apply(lambda row: annotate_with_censat(row, censat), axis=1)
 else:
-    mutations["overlaps_censat"] = 0
+    mutations["overlaps_censat"] = "no"
 
 # get sample IDs so we can filter the denominator files
 sample_ids = mutations["sample_id"].unique()

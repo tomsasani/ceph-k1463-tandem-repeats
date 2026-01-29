@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
 
-# from schema import TRGTDeNovoSchema
-
 
 # dtypes when we read in mutation dataframes
 DTYPES = {
@@ -21,6 +19,7 @@ DTYPES = {
     "father_overlap_coverage": "string",
     "mother_overlap_coverage": "string",
 }
+
 
 def al_in_parents(row: pd.Series) -> bool:
     """check if the child's de novo allele length is equal to
@@ -105,7 +104,6 @@ def add_likely_de_novo_size(row: pd.Series, use_parsimony: bool = False,) -> int
                 parent_als = list(map(int, row["father_AL"].split(",")))
             elif phase == "mom":
                 parent_als = list(map(int, row["mother_AL"].split(",")))
-
             abs_denovo_diffs = np.array([abs(denovo_al - al) for al in parent_als])
             denovo_diffs = np.array([denovo_al - al for al in parent_als])
             min_diff_idx = np.argmin(abs_denovo_diffs)
@@ -129,12 +127,11 @@ def add_likely_de_novo_size(row: pd.Series, use_parsimony: bool = False,) -> int
                     parent_als = list(map(int, row["father_AL"].split(",")))
                 elif phase == "mom":
                     parent_als = list(map(int, row["mother_AL"].split(",")))
-
                 abs_denovo_diffs = np.array([abs(denovo_al - al) for al in parent_als])
                 denovo_diffs = np.array([denovo_al - al for al in parent_als])
                 min_diff_idx = np.argmin(abs_denovo_diffs)
                 return denovo_diffs[min_diff_idx]
-
+            
 
 def determine_simplified_motif_size(row: pd.Series) -> str:
     """determine the "simplified" motif size at each locus. here,
@@ -149,30 +146,34 @@ def determine_simplified_motif_size(row: pd.Series) -> str:
     """
 
     is_complex = row["n_motifs"] > 1
+
+    min_motif_len = row["min_motiflen"]
+    max_motif_len = row["max_motiflen"]
+        
+    # if the locus *is* complex, check to see if the smallest
+    # and larger motifs are all <= 6 bp (i.e., STRs).
+    if is_complex:
+        # mix of only STRs 
+        if max_motif_len <= 6:
+            return "STR"
+        # mix of STR and VNTR
+        elif min_motif_len <= 6 and max_motif_len > 6: 
+            return "STR + VNTR"
+        # all VNTR
+        elif min_motif_len > 6: 
+            return "VNTR"
+        else: 
+            return "?"
+
     # if the locus isn't compound (e.g., if it doesn't comprise
     # more than one motif), just report whether the locus contains
-    # a single STR or VNTR. 
-    if not is_complex:
-        assert row["min_motiflen"] == row["max_motiflen"]
-        if row["min_motiflen"] == 1:
-            return "homopolymer"
-        elif 2 <= row["min_motiflen"] <= 6:
-            return "non-homopolymer STR"
+    # a single STR or VNTR.
+    else:
+        assert min_motif_len == max_motif_len
+        if max_motif_len <= 6:
+            return "STR"
         else:
             return "VNTR"
-    
-    # if the locus *is* compound, check to see if the smallest
-    # and larger motifs are all <= 6 bp (i.e., STRs).
-    else:
-        min_motif_len = row["min_motiflen"]
-        max_motif_len = row["max_motiflen"]
-        # all STR
-        if max_motif_len <= 6: return "STR"
-        # mix of STR and VNTR
-        elif min_motif_len <= 6 and max_motif_len > 6: return "complex"
-        # all VNTR
-        elif min_motif_len > 6: return "VNTR"
-        else: return "?"
 
 
 def filter_mutation_dataframe(
@@ -202,9 +203,6 @@ def filter_mutation_dataframe(
     Returns:
         pd.DataFrame: filtered pd.DataFrame object.
     """
-    # validate schema of input dataframe
-    # TRGTDeNovoSchema.validate(mutations)
-
     # if we're looking for de novos, do a quick initial filter
     # of the dataframe to reduce the subsequent search space
     if denovo_coverage_min > 0:
@@ -248,38 +246,9 @@ def filter_mutation_dataframe(
 
     mutations["parental_ev_frac"] = mutations["parental_ev"] / mutations["parental_dp"]
 
-    # mutations = mutations[mutations["dad_ev_frac"] <= parental_overlap_frac_max]
-    # mutations = mutations[mutations["mom_ev_frac"] <= parental_overlap_frac_max]
+    mutations = mutations[mutations["dad_ev_frac"] <= parental_overlap_frac_max]
+    mutations = mutations[mutations["mom_ev_frac"] <= parental_overlap_frac_max]
 
     mutations = mutations[mutations["parental_ev_frac"] <= parental_overlap_frac_max]
 
     return mutations
-
-def infer_combined_phase(row: pd.Series):
-    phase_3gen = row["phase"]
-    phase_2gen = row["phase_summary"]
-    n_upstream, n_downstream = row["n_upstream"], row["n_downstream"]
-    consistency = row["most_common_freq"]
-
-    combined_phase = "unknown"
-    # if we have phases for both...
-    if phase_2gen != "unknown" and phase_3gen != "unknown":
-        if phase_2gen.split(":")[0] == phase_3gen: combined_phase = phase_2gen.split(":")[0]
-        else: combined_phase = "conflicting"
-    elif phase_2gen == "unknown" and phase_3gen != "unknown":
-        if consistency >= 0.75: combined_phase = phase_3gen
-        else: combined_phase = "unknown"
-    elif phase_2gen != "unknown" and phase_3gen == "unknown":
-        if n_upstream + n_downstream >= 1: return phase_2gen.split(":")[0]
-        else: combined_phase = "unknown"
-    
-    return combined_phase
-
-def check_for_grandparental_evidence(row: pd.Series):
-
-    grandparental_als = list(map(int, row["grandparental_als"].split(",")))
-    child_als = list(map(int, row["child_AL"].split(",")))
-    denovo_idx = row["index"]
-    denovo_al = child_als[denovo_idx]
-    # print (denovo_al, row["grandparents"], grandparental_als)
-    return denovo_al in grandparental_als

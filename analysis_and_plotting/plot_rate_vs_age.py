@@ -10,16 +10,6 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
 
-def get_motif_types(row: pd.Series):
-    if row["max_motiflen"] == 1:
-        return "homopolymer"
-    else:
-        if row["simple_motif_size"] == "STR":
-            return "non-homopolymer STR"
-        else:
-            return row["simple_motif_size"]
-
-
 pd.set_option("display.precision", 8)
 plt.rc("font", size=14)
 plt.rcParams["font.family"] = "sans-serif"
@@ -40,7 +30,19 @@ mutations = mutations.merge(metadata, left_on="sample_id", right_on="UGRP Lab ID
 
 mutations = mutations[mutations["phase"] != "unknown"]
 
-mutations["TR type"] = mutations.apply(lambda row: get_motif_types(row), axis=1)
+
+# NOTE: for these plots, we discriminate between homopolymer and non-homopolymer
+# containing loci, because many prior studies have focused on the former.
+def adjusted_tr_type(row):
+    if row["max_motiflen"] == 1:
+        return "homopolymer"
+    else:
+        # this means that a locus with a homopolymer and another STR will be "STR"
+        return row["simple_motif_size"]
+    
+
+mutations["TR type"] = mutations.apply(lambda row: adjusted_tr_type(row), axis=1)
+
 
 sample_counts = (
     mutations.groupby(
@@ -63,7 +65,7 @@ sample_counts.rename(columns={"phase": "Parent-of-origin"}, inplace=True)
 sample_counts.replace(to_replace={"dad": "Paternal", "mom": "Maternal"}, inplace=True)
 
 f, axarr = plt.subplots(2, 2, sharex=True, sharey=True, figsize=(8, 8))
-tr2idx = dict(zip(sample_counts["TR type"].unique(), [(0, 0), (0, 1), (1, 0), (1, 1)]))
+tr2idx = dict(zip(["homopolymer", "STR", "VNTR", "STR + VNTR"], [(0, 0), (0, 1), (1, 0), (1, 1)]))
 
 colors = sns.color_palette("colorblind", 2)
 for tr, tr_df in sample_counts.groupby("TR type"):
@@ -90,8 +92,10 @@ for tr, tr_df in sample_counts.groupby("TR type"):
         df_predictions = predictions.summary_frame(alpha=0.05) # 95% confidence interval
         df_predictions[age_col] = par_df[age_col].values
         df_predictions.sort_values(age_col, ascending=True, inplace=True)
-        if par == "Paternal" and tr == "non-homopolymer STR":
+        if par == "Paternal":
+            print (tr)
             print (mod.summary())
+            print ("#####")
 
         ax.scatter(
             par_df[age_col],

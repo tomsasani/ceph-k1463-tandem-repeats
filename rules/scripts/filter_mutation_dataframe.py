@@ -1,5 +1,5 @@
 import pandas as pd
-# from snakemake.script import snakemake
+from snakemake.script import snakemake
 import utils
 
 
@@ -59,7 +59,7 @@ merged_mutations = mutations.merge(
     right_on="TRid",
 )
 
-merged_mutations["motif_size"] = merged_mutations["min_motiflen"]
+        
 merged_mutations["simple_motif_size"] = merged_mutations.apply(
     lambda row: utils.determine_simplified_motif_size(row),
     axis=1,
