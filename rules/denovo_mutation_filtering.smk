@@ -22,6 +22,7 @@ SMP2SUFF = dict(zip(ped["sample_id"], ped["suffix"]))
 
 
 CHILDREN = ped[(ped["paternal_id"] != "missing") & (~ped["paternal_id"].isin(["2281", "2214"]))]["sample_id"].to_list()
+# CHILDREN = ped[(ped["paternal_id"] != "missing")]["sample_id"].to_list()
 ALL_SAMPLES = ped["sample_id"].to_list()
 
 
@@ -95,7 +96,6 @@ rule prefilter_all_loci:
         ped = "tr_validation/data/file_mapping.csv",
         annotations = lambda wildcards: get_annotation_fh(wildcards),
         utils = "rules/scripts/utils.py"
-
     output: 
         fh = "csv/prefiltered/all_loci/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
     params:
@@ -192,7 +192,7 @@ rule phase_three_gen:
     output:
         tsv = "csv/phasing/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.phased.3gen.tsv"
     params:
-        slop = 250_000
+        slop = 500_000
     script:
         "scripts/phase_three_gen.py"
 
@@ -203,7 +203,7 @@ rule annotate_with_parental_alleles:
         dad_phased_str_vcf = lambda wildcards: f"data/trgt/phased/{SMP2DAD[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz",
         dad_phased_str_vcf_idx = lambda wildcards: f"data/trgt/phased/{SMP2DAD[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz.tbi",
         mom_phased_str_vcf = lambda wildcards: f"data/trgt/phased/{SMP2MOM[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz",
-        mom_phased_str_vc_idx = lambda wildcards: f"data/trgt/phased/{SMP2MOM[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz.tbi",
+        mom_phased_str_vcf_idx = lambda wildcards: f"data/trgt/phased/{SMP2MOM[wildcards.SAMPLE]}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz.tbi",
         kid_phased_str_vcf = lambda wildcards: f"data/trgt/phased/{wildcards.SAMPLE}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz",
         kid_phased_str_vcf_idx = lambda wildcards: f"data/trgt/phased/{wildcards.SAMPLE}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz.tbi",
     output:
@@ -296,13 +296,15 @@ rule merge_all_dnm_files:
         grandparental = "csv/grandparents/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv",
         utils = "rules/scripts/utils.py"
     output: out = "csv/filtered_and_merged/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
-    params: phase_threshold = 1.0
+    # params: phase_threshold = 0.9
     script:
         "scripts/merge_mutations_with_metadata.py"
 
 
+# we require everyone in the cohort to have reasonable depth at the recurrent DNMs
 rule find_recurrents:
     input:
+        vcfs = expand("data/trgt/phased/{SAMPLE}.{{ASSEMBLY}}.{{USE_NEW_BAM}}.phased.vcf.gz", SAMPLE=ALL_SAMPLES),
         fhs = expand("csv/filtered_and_merged/{SAMPLE}.{{ASSEMBLY}}.{{USE_NEW_BAM}}.tsv", SAMPLE=CHILDREN)
     output:
         out = "csv/recurrent/{ASSEMBLY}.{USE_NEW_BAM}.recurrent.tsv"
