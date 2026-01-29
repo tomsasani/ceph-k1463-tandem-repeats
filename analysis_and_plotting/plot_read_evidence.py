@@ -36,10 +36,12 @@ for (sample, trid, genotype), trid_df in mutations.groupby(
     ["alt_sample_id", "trid", "genotype"]
 ):
     validation = trid_df["validation_status"].unique()[0]
-    motif_size = trid_df["motif_size"].values[0]
+    motif_size = trid_df["min_motiflen"].values[0]
     poi, _, poi_support = trid_df["phase_consensus"].unique()[0].split(":")
     size = trid_df["likely_denovo_size"].unique()[0]
 
+    # if motif_size > 100:
+    #     print (trid_df)
 
     if poi != "unknown":
         poi = poi if float(poi_support) > 0.75 else "unknown"
@@ -131,7 +133,7 @@ for (sample, trid, genotype), trid_df in mutations.groupby(
     sns.despine(ax=ax)
     f.tight_layout()
     f.savefig(
-        f"{snakemake.params.outpref}/{snakemake.wildcards.TECH}.{snakemake.wildcards.ASSEMBLY}.{sample}.{trid}.png",
+        f"{snakemake.params.outpref}/{snakemake.wildcards.TECH}.{snakemake.wildcards.ASSEMBLY}.{motif_size}.{sample}.{trid}.png",
         dpi=200,
     )
     plt.close()
