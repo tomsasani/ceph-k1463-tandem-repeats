@@ -190,36 +190,16 @@ def phase_informative_sites(
 
             hap_0_origin, hap_1_origin = None, None
 
-            if dad_gt == 3:
-                # if dad's UNK and mom is HOM_REF, we know the kid got the ALT
-                # from dad
-                if mom_gt == 0:
-                    hap_0_origin = "dad" if kid_hap_0 == 1 else "mom"
-                    hap_1_origin = "dad" if kid_hap_1 == 1 else "mom"
-                elif mom_gt == 2:
-                    hap_0_origin = "mom" if kid_hap_0 == 1 else "dad"
-                    hap_1_origin = "mom" if kid_hap_1 == 1 else "dad"
-            elif mom_gt == 3:
-                # if dad's UNK and mom is HOM_REF, we know the kid got the ALT
-                # from dad
-                if dad_gt == 0:
-                    hap_0_origin = "mom" if kid_hap_0 == 1 else "dad"
-                    hap_1_origin = "mom" if kid_hap_1 == 1 else "dad"
-                elif dad_gt == 2:
-                    hap_0_origin = "dad" if kid_hap_0 == 1 else "mom"
-                    hap_1_origin = "dad" if kid_hap_1 == 1 else "mom"
-
             # if the kid is het, whichever parent has more
             # alt alleles is the one that donated the ALT.
             # even if one parent is UNK, we can assume they donated
             # the REF allele if we're on an autosome.
-            else:
-                if dad_gt > mom_gt:
-                    hap_0_origin = "dad" if kid_hap_0 == 1 else "mom"
-                    hap_1_origin = "dad" if kid_hap_1 == 1 else "mom"
-                elif mom_gt > dad_gt:
-                    hap_0_origin = "mom" if kid_hap_0 == 1 else "dad"
-                    hap_1_origin = "mom" if kid_hap_1 == 1 else "dad"
+            if dad_gt > mom_gt:
+                hap_0_origin = "dad" if kid_hap_0 == 1 else "mom"
+                hap_1_origin = "dad" if kid_hap_1 == 1 else "mom"
+            elif mom_gt > dad_gt:
+                hap_0_origin = "mom" if kid_hap_0 == 1 else "dad"
+                hap_1_origin = "mom" if kid_hap_1 == 1 else "dad"
                     
 
             if hap_0_origin is None or hap_1_origin is None: continue
@@ -256,7 +236,6 @@ def plot_phasing(df: pd.DataFrame):
     ax.set_yticks([0, 1])
     ax.set_yticklabels(["A", "B"])
     return f, ax
-
 
 
 def main():
@@ -331,13 +310,12 @@ def main():
             inf_sites=informative_sites,
             vcf=KID_PHASED_SNP_VCF,
             smp2idx=dict(
-                zip(KID_PHASED_SNP_VCF.samples,
-                    range(len(KID_PHASED_SNP_VCF.samples))), ),
+                zip(KID_PHASED_SNP_VCF.samples, range(len(KID_PHASED_SNP_VCF.samples))),
+            ),
             child=snakemake.params.focal_alt_id,
         )
         if informative_sites_phased.shape[0] == 0:
             continue
-        
 
         # now, we look in the kid's phased STR VCF to figure out which
         # haplotype the STR DNM occurred on
@@ -349,7 +327,6 @@ def main():
             hap_a, hap_b, is_phased = var.genotypes[0]
             # if we can't get a phased genotype for the STR, we can't
             # reliably phase it
-            
             if not is_phased:
                 continue
 
@@ -374,7 +351,7 @@ def main():
             # child's SNV VCF matches that of their phased STR genotype
             matching_inf_sites = informative_sites_phased[
                 informative_sites_phased["kid_inf_ps"] == kid_str_ps]
-            
+
             # sort those matching sites by their absolute distance to the STR
             str_midpoint = (trid_end + trid_start) // 2
 
@@ -388,7 +365,6 @@ def main():
             # f.savefig(f"fig/{trid}.png", dpi=200)
             # plt.close()
 
-
             matching_inf_sites["diff_to_str"] = matching_inf_sites["inf_pos"] - str_midpoint
             matching_inf_sites["abs_diff_to_str"] = matching_inf_sites[
                 "diff_to_str"].apply(lambda d: abs(d))
@@ -400,7 +376,7 @@ def main():
                                     ],
                     axis=1,
                 )
-            
+
             # for each informative site, add informatiion about the TR locus and append
             # to output file
             for _, inf_row in matching_inf_sites.iterrows():
@@ -408,7 +384,6 @@ def main():
                 inf_row_dict.update(row_dict)
                 res.append(inf_row_dict)
 
-       
     # combine informative sites with original mutation dataframe
     combined_informative_sites = pd.DataFrame(res).drop(columns=[
         "kid_inf_ps",
