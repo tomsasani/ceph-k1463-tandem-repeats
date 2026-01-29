@@ -5,8 +5,9 @@ PED_FILE = "tr_validation/data/file_mapping.csv"
 ped = pd.read_csv(PED_FILE, sep=",", dtype={"paternal_id": str, "maternal_id": str, "sample_id": str})
 
 CHILDREN = ped[(ped["paternal_id"] != "missing") & (~ped["paternal_id"].isin(["2281", "2214"]))]["sample_id"].to_list()
+ALL_SAMPLES = ped["sample_id"].to_list()
 
-ASSEMBLIES = ["CHM13v2", "GRCh38"]
+ASSEMBLIES = ["CHM13v2"]
 
 wildcard_constraints:
     SAMPLE = r"[0-9]{4,6}",
@@ -29,6 +30,7 @@ rule all:
             ], ASSEMBLY=ASSEMBLIES),
         expand("plots/vntrs/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt", ASSEMBLY=ASSEMBLIES, TECH=["hifi"], TOPUP=["TOPUP"]),
         expand("plots/svs/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt", ASSEMBLY=ASSEMBLIES, TECH=["hifi"], TOPUP=["TOPUP"]),
+        expand("plots/recurrent/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt", ASSEMBLY=ASSEMBLIES, TECH=["hifi"], TOPUP=["TOPUP"]),
         expand("plots/orthogonal_validation.{ASSEMBLY}.{TECH}.{TOPUP}.png", ASSEMBLY=ASSEMBLIES, TECH=["element"], TOPUP=["TOPUP"])
 
 
@@ -37,7 +39,8 @@ rule filter_denovos:
         dnms = expand("csv/annotated/{SAMPLE}.{{ASSEMBLY}}.element.{{TOPUP}}.tsv", SAMPLE=CHILDREN),
         denominators = expand("csv/denominators/{SAMPLE}.{{ASSEMBLY}}.{{TOPUP}}.denominator.tsv", SAMPLE=CHILDREN),
         recurrent = "csv/recurrent/{ASSEMBLY}.{TOPUP}.recurrent.tsv",
-        censat = "data/t2t.censat.bed"
+        censat = "data/t2t.censat.bed",
+        fail = "analysis_and_plotting/FAILING_TRIDS.py"
     output:
         csv = "csv/filtered_for_plots/{ASSEMBLY}.{TOPUP}.tsv"
     params:
@@ -155,6 +158,19 @@ rule plot_read_evidence_svs:
         outpref = "plots/svs"
     script:
         "analysis_and_plotting/plot_read_evidence.py"
+
+
+rule plot_read_evidence_recurrent:
+    input:
+        mutations = expand("csv/orthogonal_support/all/{SAMPLE}.{{ASSEMBLY}}.{{TECH}}.{{TOPUP}}.tsv", SAMPLE=ALL_SAMPLES),
+        recurrent = "csv/recurrent/{ASSEMBLY}.{TOPUP}.recurrent.tsv",
+        ped = PED_FILE
+    output:
+        fh = "plots/recurrent/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt"
+    params:
+        outpref = "plots/recurrent"
+    script:
+        "analysis_and_plotting/plot_read_evidence_recurrent.py"
 
 
 rule plot_read_evidence_homopolymers:

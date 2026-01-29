@@ -14,9 +14,9 @@ ped = pd.read_csv(PED_FILE, sep=",", dtype={"paternal_id": str, "maternal_id": s
 
 
 CHILDREN = ped[(ped["paternal_id"] != "missing") & (~ped["paternal_id"].isin(["2281", "2214"]))]["sample_id"].to_list()
+# CHILDREN = ped[(ped["paternal_id"] != "missing")]["sample_id"].to_list()
 ALL_SAMPLES = ped["sample_id"].to_list()
 ASSEMBLIES = ["CHM13v2"]
-
 
 
 
