@@ -1,86 +1,6 @@
-import pandas as pd
-import glob
-
-CUR_PREF = "/scratch/ucgd/lustre-labs/quinlan/u1006375/CEPH-K1463-TandemRepeats/"
-
-wildcard_constraints:
-    SAMPLE = r"[0-9]{4,6}",
-    ASSEMBLY = "GRCh38|CHM13v2",
-    TECH = r"[a-z]+",
-    USE_NEW_BAM = "TOPUP|ORIGINAL"
-
-
-# create global dictionaries we'll use
-PED_FILE = "tr_validation/data/file_mapping.csv"
-ped = pd.read_csv(PED_FILE, sep=",", dtype={"paternal_id": str, "maternal_id": str, "sample_id": str})
-
-
-SMP2DAD = dict(zip(ped["sample_id"], ped["paternal_id"]))
-SMP2MOM = dict(zip(ped["sample_id"], ped["maternal_id"]))
-SMP2ALT = dict(zip(ped["sample_id"], ped["alt_sample_id"]))
-SMP2SUFF = dict(zip(ped["sample_id"], ped["suffix"]))
-
-
-CHILDREN = ped[(ped["paternal_id"] != "missing") & (~ped["paternal_id"].isin(["2281", "2214"]))]["sample_id"].to_list()
-# CHILDREN = ped[(ped["paternal_id"] != "missing")]["sample_id"].to_list()
-ALL_SAMPLES = ped["sample_id"].to_list()
-
-
-HPRC_PREF = f"/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/TRGT/from_aws/"
-
-HPRC_SAMPLES = []
-for fh in glob.glob(HPRC_PREF + "GRCh38_v1.0_50bp_merge/1.1.2-69937d83/hprc/*.vcf.gz"):
-    sample_id = fh.split("/")[-1].split("_")[0]
-    if sample_id == "hprc": continue
-    HPRC_SAMPLES.append(sample_id)
-
-
-def get_bam_for_validation(sample, assembly, tech):
-
-    assembly_adj = assembly.split('v2')[0]
-    sample_id = SMP2ALT[sample] if tech in ("ont", "hifi") else sample
-
-    tech2path = {
-        "ont": "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/ont-bams/{0}/{1}.minimap2.bam".format(assembly_adj, sample_id,), 
-        "element": "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/element/{0}_bams/{1}-E.{0}.merged.sort.bam".format(assembly_adj, sample_id,),
-        "illumina": "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/CEPH/cram/{0}.cram".format(sample_id),
-        "hifi": "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/hifi-bams/{0}/{1}.{2}.haplotagged.bam".format(assembly_adj, sample_id, assembly_adj.lower() if 'CHM' in assembly else assembly_adj,),
-        }
-
-    return tech2path[tech]
-
-
-def get_children_vcfs(wildcards):
-    if wildcards.SAMPLE == "2216":
-        children = ["200081", "200082", "200084", "200085", "200086", "200087"]
-    elif wildcards.SAMPLE == "2189":
-        children = ["200101", "200102", "200103", "200104", "200105", "200106"]
-    else:
-        children = []
-    
-    return [f"data/trgt/phased/{s}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz" for s in children]
-
-
-def get_grandparent_vcfs(wildcards):
-    if wildcards.SAMPLE.startswith("200"):
-        grandparents = ["2209", "2188"]
-    else:
-        grandparents = ["2281", "2280", "2213", "2214"]
-        
-    return [f"data/trgt/phased/{s}.{wildcards.ASSEMBLY}.{wildcards.USE_NEW_BAM}.phased.vcf.gz" for s in grandparents]
-
-
-def get_annotation_fh(wildcards):
-    if wildcards.ASSEMBLY == "GRCh38":
-        return "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/TRGT/from_aws/staging/catalogs/human_GRCh38_no_alt_analysis_set.palladium-v1.0.trgt.annotations.bed.gz"
-        #return "data/gangstr.annotations.bed.gz"
-    elif wildcards.ASSEMBLY == "CHM13v2":
-        return "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/TRGT/from_aws/staging/catalogs/chm13v2.0_maskedY_rCRS.palladium-v1.0.trgt.annotations.bed.gz"
-
-
 rule combine_trgt_denovo:
     input:
-        fhs = expand(CUR_PREF + "csv/raw_denovos/{{SAMPLE}}.{{ASSEMBLY}}.{{USE_NEW_BAM}}.{CHROM}.trgt-denovo.csv", CHROM=CHROMS)
+        fhs = expand("csv/raw_denovos/{{SAMPLE}}.{{ASSEMBLY}}.{{USE_NEW_BAM}}.{CHROM}.trgt-denovo.csv", CHROM=CHROMS)
     output: fh = "csv/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.trgt-denovo.csv"
     shell:
         """
@@ -127,6 +47,8 @@ rule calculate_denominator:
         loci = "csv/prefiltered/all_loci/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv",
         censat = "data/t2t.censat.bed"
     output:  out = "csv/denominators/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.denominator.tsv"
+    resources:
+        mem_mb = 32_000
     script:
         "scripts/calculate_denominator.py"
 
@@ -218,9 +140,9 @@ rule validate_dnms_with_orthogonal_tech:
         mutations = "csv/prefiltered/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
     output: fh = "csv/orthogonal_support/{SAMPLE}.{ASSEMBLY}.{TECH}.{USE_NEW_BAM}.tsv",
     params:
-        kid_bam = lambda wildcards: get_bam_for_validation(wildcards.SAMPLE, wildcards.ASSEMBLY, wildcards.TECH),
-        mom_bam = lambda wildcards: get_bam_for_validation(SMP2MOM[wildcards.SAMPLE], wildcards.ASSEMBLY, wildcards.TECH),
-        dad_bam = lambda wildcards: get_bam_for_validation(SMP2DAD[wildcards.SAMPLE], wildcards.ASSEMBLY, wildcards.TECH),
+        kid_bam = lambda wildcards: get_bam_for_validation(wildcards.SAMPLE, wildcards.ASSEMBLY, wildcards.TECH, wildcards.USE_NEW_BAM),
+        mom_bam = lambda wildcards: get_bam_for_validation(SMP2MOM[wildcards.SAMPLE], wildcards.ASSEMBLY, wildcards.TECH, wildcards.USE_NEW_BAM),
+        dad_bam = lambda wildcards: get_bam_for_validation(SMP2DAD[wildcards.SAMPLE], wildcards.ASSEMBLY, wildcards.TECH, wildcards.USE_NEW_BAM),
     script:
         "scripts/annotate_with_orthogonal_evidence.py"
 
@@ -245,7 +167,7 @@ rule validate_all_with_orthogonal_tech:
         mutations = "csv/all_dnms/{ASSEMBLY}.{USE_NEW_BAM}.tsv"
     output: fh = "csv/orthogonal_support/all/{SAMPLE}.{ASSEMBLY}.{TECH}.{USE_NEW_BAM}.tsv",
     params:
-        kid_bam = lambda wildcards: get_bam_for_validation(wildcards.SAMPLE, wildcards.ASSEMBLY, wildcards.TECH),
+        kid_bam = lambda wildcards: get_bam_for_validation(wildcards.SAMPLE, wildcards.ASSEMBLY, wildcards.TECH, wildcards.USE_NEW_BAM),
         mom_bam = None,
         dad_bam = None,
     script:

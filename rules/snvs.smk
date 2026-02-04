@@ -1,29 +1,3 @@
-CHROMS = list(map(str, range(1, 23)))
-CHROMS = [f"chr{c}" for c in CHROMS]
-CHROMS.extend(["chrX", "chrY"])
-
-# create global dictionaries we'll use
-PED_FILE = "tr_validation/data/file_mapping.csv"
-ped = pd.read_csv(PED_FILE, sep=",", dtype={"paternal_id": str, "maternal_id": str, "sample_id": str})
-
-
-ALL_SAMPLES = ped["sample_id"].to_list()
-
-def get_complete_bams(wildcards):
-    """
-    return the path to the 'complete' BAM file for a given sample.
-    if the sample is one of the four with top-up sequencing, return a path
-    that requires us to re-align and merge the updated top-up data. otherwise
-    return the original path to the HiFi BAM
-    """
-    if wildcards.USE_NEW_BAM == "TOPUP" and wildcards.SAMPLE in ("200100", "2189", "2216", "200080"):
-        return f"{NEW_PATH}/merged/{wildcards.ASSEMBLY}/{wildcards.SAMPLE}.merged.bam"
-    else:
-        assembly_adj = wildcards.ASSEMBLY.split('v2')[0]
-        sample_id = SMP2ALT[wildcards.SAMPLE]
-        return "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/hifi-bams/{0}/{1}.{2}.haplotagged.bam".format(assembly_adj, sample_id, assembly_adj.lower() if 'CHM' in wildcards.ASSEMBLY else assembly_adj,)
-
-
 rule call_snvs:
     input:
         ref = "data/contigs/{CHROM}.{ASSEMBLY}.fa.gz",

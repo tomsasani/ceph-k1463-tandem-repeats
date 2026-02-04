@@ -1,19 +1,6 @@
 from collections import defaultdict
 import glob
 
-
-ORIG_PATH = "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/hifi-bams"
-NEW_PATH = "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/UW_PB_HiFi/topoff_2025"
-
-wildcard_constraints:
-    SAMPLE = r"[0-9]{4,6}",
-    ASSEMBLY = "GRCh38|CHM13v2",
-    TECH = "element|hifi|illumina",
-    TOPUP = "TOPUP|ORIGINAL",
-    CHROM = r"chr[0-9]{1,2}|chrX|chrY"
-
-
-
 # map samples to list of sub-bams
 # samples, seqruns, bcids = [], [], []
 SMP2SEQRUNS, SMP2BCIDS = defaultdict(list), defaultdict(list)
