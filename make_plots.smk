@@ -8,6 +8,7 @@ CHILDREN = ped[(ped["paternal_id"] != "missing") & (~ped["paternal_id"].isin(["2
 ALL_SAMPLES = ped["sample_id"].to_list()
 
 ASSEMBLIES = ["CHM13v2"]
+USE_NEW_BAMS = ["TOPUP", "ORIGINAL"]
 
 wildcard_constraints:
     SAMPLE = r"[0-9]{4,6}",
@@ -17,8 +18,8 @@ wildcard_constraints:
 
 rule all:
     input:
-        expand("csv/filtered_for_plots/{ASSEMBLY}.TOPUP.tsv", ASSEMBLY=ASSEMBLIES),
-        expand("plots/{plot_name}.{ASSEMBLY}.TOPUP.png", plot_name=[
+        expand("csv/filtered_for_plots/{ASSEMBLY}.{USE_NEW_BAM}.tsv", ASSEMBLY=ASSEMBLIES, USE_NEW_BAM=USE_NEW_BAMS),
+        expand("plots/{plot_name}.{ASSEMBLY}.{USE_NEW_BAM}.png", plot_name=[
             "length_and_purity", 
             "het_effect", 
             "rate_vs_age", 
@@ -27,11 +28,13 @@ rule all:
             "censat_rate", 
             "motif_sizes",
             "motif_rate",
-            ], ASSEMBLY=ASSEMBLIES),
-        expand("plots/vntrs/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt", ASSEMBLY=ASSEMBLIES, TECH=["hifi"], TOPUP=["TOPUP"]),
-        expand("plots/svs/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt", ASSEMBLY=ASSEMBLIES, TECH=["hifi"], TOPUP=["TOPUP"]),
-        expand("plots/recurrent/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt", ASSEMBLY=ASSEMBLIES, TECH=["hifi"], TOPUP=["TOPUP"]),
-        expand("plots/orthogonal_validation.{ASSEMBLY}.{TECH}.{TOPUP}.png", ASSEMBLY=ASSEMBLIES, TECH=["element"], TOPUP=["TOPUP"])
+            ], ASSEMBLY=ASSEMBLIES, USE_NEW_BAM=USE_NEW_BAMS),
+        expand("plots/vntrs/{ASSEMBLY}.{TECH}.{USE_NEW_BAM}.plotted_trids.txt", ASSEMBLY=ASSEMBLIES, TECH=["hifi"], USE_NEW_BAM=USE_NEW_BAMS),
+        expand("plots/svs/{ASSEMBLY}.{TECH}.{USE_NEW_BAM}.plotted_trids.txt", ASSEMBLY=ASSEMBLIES, TECH=["hifi"], USE_NEW_BAM=USE_NEW_BAMS),
+        expand("plots/censat/{ASSEMBLY}.{TECH}.{USE_NEW_BAM}.plotted_trids.txt", ASSEMBLY=ASSEMBLIES, TECH=["hifi"], USE_NEW_BAM=USE_NEW_BAMS),
+        expand("plots/recurrent/{ASSEMBLY}.{TECH}.{USE_NEW_BAM}.plotted_trids.txt", ASSEMBLY=ASSEMBLIES, TECH=["hifi"], USE_NEW_BAM=USE_NEW_BAMS),
+        expand("plots/orthogonal_validation.{ASSEMBLY}.{TECH}.{USE_NEW_BAM}.png", ASSEMBLY=ASSEMBLIES, TECH=["element"], USE_NEW_BAM=USE_NEW_BAMS)
+
 
 
 rule filter_denovos:
@@ -109,6 +112,7 @@ rule plot_motif_sizes:
     script:
         "analysis_and_plotting/plot_dnm_motif_sizes.py"
 
+
 rule plot_censat_rate:
     input:
         mutations = "csv/filtered_for_plots/{ASSEMBLY}.{TOPUP}.tsv",
@@ -119,6 +123,7 @@ rule plot_censat_rate:
         rate_per_haplotype = True
     script:
         "analysis_and_plotting/plot_rate_in_censat.py"
+
 
 rule plot_rate_by_motif:
     input:
@@ -135,13 +140,17 @@ rule plot_rate_by_motif:
 rule plot_read_evidence_vntr:
     input:
         mutations = expand("csv/annotated/{SAMPLE}.{{ASSEMBLY}}.{{TECH}}.{{TOPUP}}.tsv", SAMPLE=CHILDREN),
-        recurrent = "csv/recurrent/{ASSEMBLY}.{TOPUP}.recurrent.tsv"
+        recurrent = "csv/recurrent/{ASSEMBLY}.{TOPUP}.recurrent.tsv",
+                censat = "data/t2t.censat.bed"
+
     output:
         fh = "plots/vntrs/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt"
     params:
         minimum_motif_size = 7,
         minimum_dnm_size = 1,
-        outpref = "plots/vntrs"
+        outpref = "plots/vntrs",
+                censat_only = False,
+
     script:
         "analysis_and_plotting/plot_read_evidence.py"
 
@@ -149,13 +158,33 @@ rule plot_read_evidence_vntr:
 rule plot_read_evidence_svs:
     input:
         mutations = expand("csv/annotated/{SAMPLE}.{{ASSEMBLY}}.{{TECH}}.{{TOPUP}}.tsv", SAMPLE=CHILDREN),
-        recurrent = "csv/recurrent/{ASSEMBLY}.{TOPUP}.recurrent.tsv"
+        recurrent = "csv/recurrent/{ASSEMBLY}.{TOPUP}.recurrent.tsv",
+                censat = "data/t2t.censat.bed"
+
     output:
         fh = "plots/svs/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt"
     params:
         minimum_motif_size = 1,
         minimum_dnm_size = 50,
-        outpref = "plots/svs"
+        outpref = "plots/svs",
+                censat_only = False,
+
+    script:
+        "analysis_and_plotting/plot_read_evidence.py"
+
+
+rule plot_read_evidence_censat:
+    input:
+        mutations = expand("csv/annotated/{SAMPLE}.{{ASSEMBLY}}.{{TECH}}.{{TOPUP}}.tsv", SAMPLE=CHILDREN),
+        recurrent = "csv/recurrent/{ASSEMBLY}.{TOPUP}.recurrent.tsv",
+        censat = "data/t2t.censat.bed"
+    output:
+        fh = "plots/censat/{ASSEMBLY}.{TECH}.{TOPUP}.plotted_trids.txt"
+    params:
+        minimum_motif_size = 1,
+        minimum_dnm_size = 1,
+        outpref = "plots/censat",
+        censat_only = True,
     script:
         "analysis_and_plotting/plot_read_evidence.py"
 
@@ -173,7 +202,7 @@ rule plot_read_evidence_recurrent:
         "analysis_and_plotting/plot_read_evidence_recurrent.py"
 
 
-rule plot_read_evidence_homopolymers:
+rule calculate_orthogonal_validation:
     input:
         mutations = expand("csv/annotated/{SAMPLE}.{{ASSEMBLY}}.{{TECH}}.{{TOPUP}}.tsv", SAMPLE=CHILDREN),
         recurrent = "csv/recurrent/{ASSEMBLY}.{TOPUP}.recurrent.tsv",
