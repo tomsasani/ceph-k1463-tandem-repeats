@@ -7,6 +7,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import seaborn as sns
 import scipy.stats as ss
 
+from snakemake.script import snakemake
 
 def calculate_poisson_ci(ct: int, obs: int, alpha: float = 0.95):
 
@@ -93,7 +94,7 @@ per_sample_rates["overlaps_censat"] = per_sample_rates["overlaps_censat"].replac
 per_sample_rates = per_sample_rates.sort_values(["numerator", "simple_motif_size"], ascending=False)
 categories = per_sample_rates.drop_duplicates("overlaps_censat")["overlaps_censat"].to_list()
 
-f, ax = plt.subplots(figsize=(8, 6))
+f, ax = plt.subplots(figsize=(12, 6))
 per_sample_rates = per_sample_rates.sort_values("rate")
 order2idx = dict(
     zip(
@@ -131,7 +132,13 @@ for censat, censat_df in per_sample_rates.groupby("overlaps_censat"):
         family="monospace",
     )
 
-ax.legend(frameon=True, shadow=True, title="Motifs in TR locus", loc="upper left")
+ax.legend(
+    frameon=True,
+    shadow=True,
+    title="Motifs in TR locus",
+    loc="upper center",
+    bbox_to_anchor=(1.1, 0.65),
+)
 ax.set_xticks(range(len(order2idx)))
 ax.set_xticklabels(order2idx.keys(), rotation=45)
 ax.set_yscale("log")

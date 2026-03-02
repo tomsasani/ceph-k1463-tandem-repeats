@@ -2,11 +2,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
+from snakemake.script import snakemake
 
 
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
-plt.rc("font", size=12)
+plt.rc("font", size=14)
 
 
 mutations = pd.read_csv(snakemake.input.mutations, sep="\t", dtype={"sample_id": str, "paternal_id": str})
@@ -43,7 +44,7 @@ palette = ['006BA4', 'FF800E', 'ABABAB', '595959', '5F9ED1', 'C85200', '898989',
 palette = [f"#{c}" for c in palette]
 palette = sns.color_palette("colorblind", 7)
 
-f, ax = plt.subplots(figsize=(7, 7))
+f, ax = plt.subplots(figsize=(9, 7))
 
 bottom = np.zeros_like(ind)
 
@@ -69,7 +70,7 @@ ax.set_xticks(ind)
 ax.set_xticklabels(counts["sample_id"].unique(), rotation=45)
 ax.set_xlabel("Sample ID")
 ax.set_ylabel("# of DNMs")
-ax.legend(title="Minimum motif size in locus (bp)", shadow=True, fontsize=10)
+ax.legend(title="Minimum motif size in locus (bp)", shadow=True, fontsize=12)
 
 sns.despine(ax=ax)
 f.tight_layout()

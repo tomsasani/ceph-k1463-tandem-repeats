@@ -4,6 +4,8 @@ from collections import defaultdict
 import csv
 from analysis_and_plotting.FAILING_TRIDS import FAIL_VNTRS, FAIL_SVS
 
+from snakemake.script import snakemake
+
 
 def annotate_with_censat(row: pd.Series, censat):
     overlaps = censat[row["#chrom"]].find(row["start"], row["end"])

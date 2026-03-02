@@ -8,6 +8,8 @@ from bx.intervals.intersection import Interval, IntervalTree
 from collections import defaultdict
 import csv
 
+from snakemake.script import snakemake
+
 def assign_pedigree_id(row: pd.Series):
     comb_id = []
     if row["sample_id_with_evidence"] in ("2280", "2281") or row["paternal_id"] == "2281":
@@ -39,7 +41,7 @@ mutations = pd.concat(mutations).dropna(subset=["kid_evidence"])
 
 
 # subset to the mutations we know are recurrent.
-recurrents = pd.read_csv(snakemake.input.recurrent, sep="\t")
+recurrents = pd.read_csv(snakemake.input.recurrent, sep="\t")#["trid"].to_list()
 recurrents = recurrents[recurrents["sufficient_cohort_depth"] == 1]["trid"].to_list()
 
 # ditch the patenral and matenral ID columns for now, since we'll add the patenral and matneral IDs
@@ -149,7 +151,7 @@ for i, (trid, trid_df) in enumerate(mutations.groupby("trid")):
     f.savefig(f'{snakemake.params.outpref}/{snakemake.wildcards.TECH}.{snakemake.wildcards.ASSEMBLY}.{trid}.png', dpi=200)
     plt.close()
 
-    with open(snakemake.output.fh, "w") as outfh:
+    with open(snakemake.output.fh, "a") as outfh:
         for l in trid_df["trid"].unique():
             print (l, file=outfh)
     outfh.close()

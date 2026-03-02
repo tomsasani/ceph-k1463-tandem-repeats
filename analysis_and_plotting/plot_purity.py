@@ -5,6 +5,8 @@ import numpy as np
 import scipy.stats as ss
 import matplotlib.patches as patches
 
+from snakemake.script import snakemake
+
 plt.rc("font", size=11)
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
@@ -12,9 +14,6 @@ plt.rcParams["font.sans-serif"] = ["Nimbus Sans"]
 rng = np.random.default_rng(42)
 
 mutations = pd.read_csv(snakemake.input.mutations, sep="\t", dtype={"sample_id": str})
-
-for c in mutations.columns:
-   if np.any(mutations[c].isna()): print (c)
 
 mutations = mutations[mutations["haplotype_in_parent_consensus"] != "UNK"]
 
@@ -25,7 +24,6 @@ mutations["untransmitted_AL"] = mutations["untransmitted_sequence_in_parent"].ap
 mutations["direction"] = mutations["likely_denovo_size"].apply(
     lambda d: "expansion" if d > 0 else "contraction" if d < 0 else "interruption"
 )
-
 
 f, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 4), sharey=True)
 

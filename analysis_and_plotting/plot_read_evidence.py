@@ -7,12 +7,35 @@ from bx.intervals.intersection import Interval, IntervalTree
 from collections import defaultdict
 import csv
 
+from snakemake.script import snakemake
+
+def annotate_with_censat(row: pd.Series, censat):
+    overlaps = censat[row["#chrom"]].find(row["start"], row["end"])
+    if len(overlaps) == 0: 
+        return "no"
+    else:
+        return overlaps[0].value["kind"].split("_")[0]
+
+
+censat = defaultdict(IntervalTree)
+with open(snakemake.input.censat, "r") as infh:
+    csvf = csv.reader(infh, delimiter="\t")
+    for l in csvf:
+        chrom, start, end = l[:3]
+        censat[chrom].insert_interval(Interval(int(start), int(end), value={"kind": l[3]}))
+
+
 # get mutations
 mutations = []
 for fh in snakemake.input.mutations:
     df = pd.read_csv(fh, sep="\t", dtype={"sample_id": str})
     mutations.append(df)
 mutations = pd.concat(mutations).dropna(subset=["kid_evidence", "mom_evidence", "dad_evidence"])
+
+if snakemake.wildcards.ASSEMBLY == "CHM13v2":
+    mutations["overlaps_censat"] = mutations.apply(lambda row: annotate_with_censat(row, censat), axis=1)
+else:
+    mutations["overlaps_censat"] = "no"
 
 
 recurrents = pd.read_csv(snakemake.input.recurrent, sep="\t")["trid"].to_list()
@@ -28,20 +51,23 @@ mutations["child_to_reference_diff"] = (
 )
 mutations["child_to_parent_diff"] = mutations["likely_denovo_size"]
 
-mutations = mutations[mutations["min_motiflen"] >= snakemake.params.minimum_motif_size]
-mutations = mutations[mutations["likely_denovo_size"] >= snakemake.params.minimum_dnm_size]
 
+mutations = mutations[mutations["min_motiflen"] >= snakemake.params.minimum_motif_size]
+mutations = mutations[mutations["likely_denovo_size"].abs() >= snakemake.params.minimum_dnm_size]
+if snakemake.params.censat_only:
+    mutations = mutations[mutations["overlaps_censat"] != "no"]
+
+
+outfh =  open(snakemake.output.fh, "w")
 
 for (sample, trid, genotype), trid_df in mutations.groupby(
     ["alt_sample_id", "trid", "genotype"]
 ):
     validation = trid_df["validation_status"].unique()[0]
     motif_size = trid_df["min_motiflen"].values[0]
+
     poi, _, poi_support = trid_df["phase_consensus"].unique()[0].split(":")
     size = trid_df["likely_denovo_size"].unique()[0]
-
-    # if motif_size > 100:
-    #     print (trid_df)
 
     if poi != "unknown":
         poi = poi if float(poi_support) > 0.75 else "unknown"
@@ -61,8 +87,6 @@ for (sample, trid, genotype), trid_df in mutations.groupby(
         trid_df["non_denovo_al"] = trid_df.apply(
             lambda row: row["child_AL"].split(",")[1 - row["index"]], axis=1
         )
-    if trid_df.shape[0] != 1: 
-        continue
 
     mom_diffs, dad_diffs, kid_diffs = [], [], []
     for col in ("mom_evidence", "dad_evidence", "kid_evidence"):
@@ -98,6 +122,7 @@ for (sample, trid, genotype), trid_df in mutations.groupby(
                 is_poi = poi == label
         for diff in diff_list:
             plot_df.append({"sample": label, "is_poi": is_poi, "diff": diff})
+            
     plot_df = pd.DataFrame(plot_df)
     sns.stripplot(
         data=plot_df,
@@ -138,7 +163,7 @@ for (sample, trid, genotype), trid_df in mutations.groupby(
     )
     plt.close()
 
-with open(snakemake.output.fh, "w") as outfh:
+    
     for l in trid_df["trid"].unique():
         print (l, file=outfh)
 outfh.close()

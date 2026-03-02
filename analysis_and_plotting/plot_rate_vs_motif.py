@@ -7,6 +7,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import seaborn as sns
 import scipy.stats as ss
 
+from snakemake.script import snakemake
 
 def calculate_poisson_ci(ct: int, obs: int, alpha: float = 0.95):
 
@@ -23,7 +24,6 @@ def calculate_poisson_ci(ct: int, obs: int, alpha: float = 0.95):
     rate_upper = upper_bound / obs
     
     return (rate_lower, rate_upper)
-
 
 
 pd.set_option("display.precision", 8)
@@ -101,6 +101,20 @@ per_motif_rates["ci_hi"] = per_motif_rates.apply(
     lambda row: calculate_poisson_ci(row["numerator"], row["denominator"])[1],
     axis=1,
 )
+
+print(
+    mutations.query("min_motiflen >= 50")[
+        [
+            "trid",
+            "sample_id",
+            "child_AL",
+            "father_AL",
+            "mother_AL",
+            "min_motiflen",
+        ]
+    ]
+)
+
 
 print ("## PER-CLASS MUTATION RATES ##")
 per_motif_rates["mean"] = per_motif_rates["numerator"] / len(sample_ids)

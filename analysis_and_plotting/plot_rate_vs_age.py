@@ -9,6 +9,8 @@ import scipy.stats as ss
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
+from snakemake.script import snakemake
+
 
 pd.set_option("display.precision", 8)
 plt.rc("font", size=14)
@@ -23,6 +25,7 @@ mutations["generation"] = mutations["sample_id"].apply(lambda s: "G4A" if s.star
 sample_ids = mutations["sample_id"].unique()
 # map alternate (NAXXXX) IDs to original (2189) IDs
 alt2orig = dict(zip(mutations["alt_sample_id"], mutations["sample_id"]))
+
 
 metadata = pd.read_csv(snakemake.input.metadata, dtype={"UGRP Lab ID (archive)": str})
 
@@ -92,7 +95,7 @@ for tr, tr_df in sample_counts.groupby("TR type"):
         df_predictions = predictions.summary_frame(alpha=0.05) # 95% confidence interval
         df_predictions[age_col] = par_df[age_col].values
         df_predictions.sort_values(age_col, ascending=True, inplace=True)
-        if par == "Paternal":
+        if par == "Paternal" and tr == "STR":
             print (tr)
             print (mod.summary())
             print ("#####")
