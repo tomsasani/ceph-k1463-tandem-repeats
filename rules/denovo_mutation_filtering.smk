@@ -14,7 +14,7 @@ rule prefilter_all_loci:
     input:
         kid_mutation_df = "csv/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.trgt-denovo.csv",
         ped = "tr_validation/data/file_mapping.csv",
-        annotations = lambda wildcards: get_annotation_fh(wildcards),
+        annotations = get_annotation_fh,
         utils = "rules/scripts/utils.py"
     output: 
         fh = "csv/prefiltered/all_loci/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
@@ -30,7 +30,7 @@ rule prefilter_denovos:
     input:
         ped = "tr_validation/data/file_mapping.csv",
         kid_mutation_df = "csv/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.trgt-denovo.csv",
-        annotations = lambda wildcards: get_annotation_fh(wildcards),
+        annotations = get_annotation_fh,
         utils = "rules/scripts/utils.py"
     output: 
         fh = "csv/prefiltered/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
@@ -189,7 +189,6 @@ rule add_transmission_evidence:
         mutations = "csv/prefiltered/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv",
         other_vcfs = get_children_vcfs,
         other_vcf_idxs = lambda wildcards: [v + ".tbi" for v in get_children_vcfs(wildcards)]
-
     output: fh = "csv/transmission/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
     params:
         generation_to_query = "children"
@@ -200,7 +199,7 @@ rule add_transmission_evidence:
 rule add_grandparental_evidence:
     input:
         mutations = "csv/prefiltered/denovos/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv",
-        other_vcfs = lambda wildcards: get_grandparent_vcfs(wildcards),
+        other_vcfs = get_grandparent_vcfs,
         other_vcf_idxs = lambda wildcards: [v + ".tbi" for v in get_grandparent_vcfs(wildcards)]
     output: fh = "csv/grandparents/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.tsv"
     params:
@@ -236,19 +235,19 @@ rule find_recurrents:
 
 rule annotate_with_hprc_heterozygosity:
     input:
-        vcf = lambda wildcards: HPRC_PREF + f"{wildcards.ASSEMBLY}_v1.0_50bp_merge/1.1.2-69937d83/hprc/{wildcards.HPRC_SAMPLE}_{wildcards.ASSEMBLY}_50bp_merge.sorted.vcf.gz",
-        denovos = "{ASSEMBLY}.filtered.tsv",
+        vcf = lambda wildcards: f"{HPRC_PREF}/{wildcards.HPRC_SAMPLE}_{wildcards.ASSEMBLY}_50bp_merge.sorted.vcf.gz",
+        denovos = "csv/filtered_for_plots/{ASSEMBLY}.{USE_NEW_BAM}.tsv",
         catalog = lambda wildcards: ASSEMBLY2CATALOG[wildcards.ASSEMBLY],
     output:
-        mutations = "data/hprc/{HPRC_SAMPLE}.{ASSEMBLY}.{KIND}.heterozygosity.tsv"     
+        mutations = "data/hprc/{HPRC_SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{KIND}.heterozygosity.tsv"     
     script:
         "scripts/calculate_hprc_heterozygosity.py"
 
 
 rule merge_hprc:
     input:
-        fhs = expand("data/hprc/{HPRC_SAMPLE}.{{ASSEMBLY}}.{KIND}.heterozygosity.tsv", HPRC_SAMPLE=HPRC_SAMPLES, KIND=["wt", "denovo"])
-    output: fh = "csv/hprc/combined.{ASSEMBLY}.heterozygosity.tsv"
+        fhs = expand("data/hprc/{HPRC_SAMPLE}.{{ASSEMBLY}}.{{USE_NEW_BAM}}.{KIND}.heterozygosity.tsv", HPRC_SAMPLE=HPRC_SAMPLES, KIND=["wt", "denovo"])
+    output: fh = "csv/hprc/combined.{ASSEMBLY}.{USE_NEW_BAM}.heterozygosity.tsv"
     shell:
         """
         cat {input.fhs} | grep -v 'chrom' > {output.fh}

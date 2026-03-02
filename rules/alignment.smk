@@ -1,6 +1,9 @@
 from collections import defaultdict
 import glob
 
+
+ORIG_PATH = "/scratch/ucgd/lustre-labs/quinlan/data-shared/datasets/Palladium/hifi-bams"
+
 # map samples to list of sub-bams
 # samples, seqruns, bcids = [], [], []
 SMP2SEQRUNS, SMP2BCIDS = defaultdict(list), defaultdict(list)

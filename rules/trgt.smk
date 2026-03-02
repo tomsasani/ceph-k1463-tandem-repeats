@@ -55,7 +55,7 @@ rule index_chrom_ref:
 
 rule run_trgt:
     input:
-        bam = lambda wildcards: get_complete_bams(wildcards),
+        bam = get_complete_bams,
         bam_idx = lambda wildcards: get_complete_bams(wildcards) + ".bai",
         reference = "data/contigs/{CHROM}.{ASSEMBLY}.fa.gz",
         trgt_binary = "/uufs/chpc.utah.edu/common/HIPAA/u1006375/src/trgt-v4.0.0-x86_64-unknown-linux-gnu/trgt",
@@ -85,8 +85,7 @@ rule sort_chrom_vcfs:
 rule index_trgt_vcfs:
     input:
         vcf = "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz"
-    output:
-        "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz.tbi"
+    output: "data/trgt/per-chrom/{SAMPLE}.{ASSEMBLY}.{USE_NEW_BAM}.{CHROM}.sorted.vcf.gz.tbi"
     script:
         "bash_scripts/index_vcf.sh"
 
