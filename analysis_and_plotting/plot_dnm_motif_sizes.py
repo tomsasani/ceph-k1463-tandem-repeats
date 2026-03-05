@@ -26,9 +26,7 @@ def get_size_in_motifs(row):
 mutations = pd.read_csv(snakemake.input.mutations, sep="\t", dtype={"paternal_id": str, "sample_id": str})
 
 # mutations = mutations[mutations["overlaps_censat"] == "no"]
-print (mutations.shape)
 mutations["is_exp"] = mutations["likely_denovo_size"] > 0
-print (mutations.groupby("is_exp").size())
 
 
 n_expansions = mutations.query("likely_denovo_size > 0").shape[0]
@@ -40,24 +38,53 @@ print (n_expansions, n_contractions, p)
 # read in akshay decomposition
 akshay = pd.read_csv(snakemake.input.akshay, sep="\t")
 n_events = akshay.groupby("ID").size().reset_index().rename(columns={0: "n_events"})
+
 akshay = akshay.merge(n_events)
 
-akshay = akshay[akshay["n_events"] == 1]
+def akshay_dnm_size(info):
+    mutation_type, mutation_length = info.split(";")[2:4]
+    mutation_type = -1 if mutation_type.split("=")[-1] == "D" else 1
+    mutation_length = int(mutation_length.split("=")[-1])
+    return mutation_length * mutation_type
 
-akshay["akshay_motif"] = akshay["Info"].apply(lambda i: i.split(";")[5].split(":")[1] if len(i.split(";")[5].split(":")) > 1 else "UNK")
-akshay["akshay_motif_size"] = akshay["Info"].apply(lambda i: len(i.split(";")[5].split(":")[1]) if len(i.split(";")[5].split(":")) > 1 else "UNK")
+def akshay_motif(info):
+    repeat = info.split(";")[5].split("=")
+    if repeat[1] == "":
+        return "UNK"
+    else:
+        return repeat[1].split(":")[1] if len(repeat[1].split(":")) > 1 else "UNK"
+
+akshay["akshay_motif"] = akshay["Info"].apply(lambda i: akshay_motif(i))
+akshay["akshay_motif_size"] = akshay["akshay_motif"].str.len()
+akshay["dnm_size"] = akshay["Info"].apply(lambda i: akshay_dnm_size(i))
+
+akshay = akshay[akshay["Info"].str.contains("ParentAllele=PHASED")]
 akshay = akshay[akshay["akshay_motif"] != "UNK"]
 
-# get mutations with a single motif, these are easy
-single_motif_mutations = mutations[mutations["n_motifs"] == 1]
-
-# merge multi-motif mutations with akshays file to decompose
-multi_motif_mutations = mutations[mutations["n_motifs"] > 1]
-multi_motif_mutations = akshay.merge(
-    multi_motif_mutations,
-    left_on="ID",
-    right_on="trid",
+# for each one of akshay's decomposed mutations, figure out if the same motif mutated
+# in each event. in these plots, we'll only consider single motif mutations OR complex mutations
+# for which akshay's inferred that a single motif actually mutated
+_grouped = (
+    akshay.groupby("ID")
+    .agg(
+        n_unique_motifs=("akshay_motif", lambda m: len(set(m))),
+        unique_motifs=("akshay_motif", lambda m: ",".join(list(set(m)))),
+        total_dnm_size=("dnm_size", "sum"),
+    )
+    .reset_index()
 )
+_grouped = _grouped.query("n_unique_motifs == 1")
+
+# subset original mutations to single motif and complex
+single_motif_mutations = mutations[mutations["n_motifs"] == 1]
+multi_motif_mutations = mutations[mutations["n_motifs"] > 1]
+
+
+# merge the complex loci with the subset of akshay's that we know (after decomposition)
+# involved a single motif
+multi_motif_mutations = multi_motif_mutations.merge(_grouped, right_on="ID", left_on="trid", how="left").dropna(subset=["n_unique_motifs"])
+multi_motif_mutations["unique_motif_size"] = multi_motif_mutations["unique_motifs"].str.len()
+
 
 # subset to relevant columns
 single_motif_mutations = single_motif_mutations[
@@ -65,14 +92,11 @@ single_motif_mutations = single_motif_mutations[
 ].rename(columns={"motifs": "motif", "min_motiflen": "motif_size"})
 
 multi_motif_mutations = multi_motif_mutations[
-    ["sample_id", "likely_denovo_size", "akshay_motif", "akshay_motif_size", "phase"]
-].rename(columns={"akshay_motif": "motif", "akshay_motif_size": "motif_size"})
+    ["sample_id", "total_dnm_size", "unique_motifs", "unique_motif_size", "phase"]
+].rename(columns={"total_dnm_size": "likely_denovo_size", "akshay_motif": "motif", "unique_motif_size": "motif_size"})
 
-
-print (single_motif_mutations.shape, multi_motif_mutations.shape)
 
 combined = pd.concat([single_motif_mutations, multi_motif_mutations])
-print (combined.shape)
 combined["motif_change"] = combined["likely_denovo_size"] // combined["motif_size"]
 combined["motif_change_leftover"] = combined["likely_denovo_size"] % combined["motif_size"]
 

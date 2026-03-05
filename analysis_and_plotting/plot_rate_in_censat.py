@@ -81,7 +81,7 @@ per_sample_rates["ci_hi"] = per_sample_rates.apply(
 
 per_sample_rates["overlaps_censat"] = per_sample_rates["overlaps_censat"].replace(
     {
-        "no": "None",
+        "no": "No CenSat overlap",
         "gsat": r"$\gamma$",
         "censat": "Other",
         "hsat1B": "Classical human",
@@ -143,7 +143,7 @@ ax.set_xticks(range(len(order2idx)))
 ax.set_xticklabels(order2idx.keys(), rotation=45)
 ax.set_yscale("log")
 ax.set_ylabel("Mutation rate (per locus, per haplotype\nper generation) +/- 95% CI")
-ax.set_xlabel("CenSat overlap")
+ax.set_xlabel("Overlap with CHM13v2 CenSat annotation")
 sns.despine(ax=ax)
 f.tight_layout()
 f.savefig(snakemake.output.png, dpi=200)

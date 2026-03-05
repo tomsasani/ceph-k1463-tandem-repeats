@@ -1,6 +1,25 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from collections import defaultdict
+from bx.intervals.intersection import Interval, IntervalTree
+import csv
+from snakemake.script import snakemake
+
+def annotate_with_censat(row: pd.Series, censat):
+    overlaps = censat[row["#chrom"]].find(row["start"], row["end"])
+    if len(overlaps) == 0: 
+        return "no"
+    else:
+        return overlaps[0].value["kind"].split("_")[0]
+
+
+censat = defaultdict(IntervalTree)
+with open(snakemake.input.censat, "r") as infh:
+    csvf = csv.reader(infh, delimiter="\t")
+    for l in csvf:
+        chrom, start, end = l[:3]
+        censat[chrom].insert_interval(Interval(int(start), int(end), value={"kind": l[3]}))
 
 
 plt.rc("font", size=14)
@@ -16,26 +35,30 @@ for fh in snakemake.input.mutations:
     df = pd.read_csv(fh, sep="\t", dtype={"sample_id": str})
     mutations.append(df)
 mutations = pd.concat(mutations)
-# mutations = mutations[mutations["simple_motif_size"].isin(["homopolymer", "non-homopolymer STR"]]
 
-print (mutations.groupby(["simple_motif_size", "validation_status"]).size())
+mutations = mutations[mutations["max_motiflen"] > 1]
+
+if snakemake.wildcards.ASSEMBLY == "CHM13v2":
+    mutations["overlaps_censat"] = mutations.apply(lambda row: annotate_with_censat(row, censat), axis=1)
+else:
+    mutations["overlaps_censat"] = "no"
+
+
 mutations["is_phased"] = mutations["phase_consensus"].apply(lambda p: "Y" if "unknown" not in p else "N")
 mutations["is_phased_int"] = mutations["is_phased"].apply(lambda p: 1 if p == "Y" else 0)
 
 mutations = mutations[mutations["validation_status"] != "no_data"]
 
-print (mutations.shape)
 mutations = mutations[~mutations["trid"].isin(recurrent_trids)]
-print (mutations.shape)
 
-mutations["TR type"] = mutations["simple_motif_size"]
-mutations["is_expansion"] = mutations["likely_denovo_size"].apply(lambda s: "expansion" if s >= 1 else "contraction")
+mutations["in_censat"] = mutations["overlaps_censat"].apply(lambda s: "N" if s == "no" else "Y")
 
 mutations["is_validated"] = mutations["validation_status"].apply(lambda v: 1 if v == "pass" else 0)
 
-group_cols = ["TR type", "is_expansion"]
+group_cols = ["simple_motif_size", "in_censat", "validation_status"]
 
-counts = mutations.groupby(group_cols).agg(passing=("is_validated", "sum")).reset_index()
+
+counts = mutations.groupby(group_cols).agg(passing=("is_validated", "sum"), total=("is_validated", "count")).reset_index()
 chi2 = [list(counts.values[0:2, 2]), list(counts.values[2:, 2])]
 
 
@@ -52,14 +75,11 @@ for bs in range(bootstraps):
 res = pd.concat(res)
 res["frac"] = res["passing"] / res["total"]
 
-res = res.rename(columns={"is_expansion": "Size"})
-
 f, ax = plt.subplots(figsize=(5, 8))
 sns.barplot(
     data=res,
-    hue="Size",
     y="frac",
-    x="TR type",
+    x="simple_motif_size",
     estimator="mean",
     errorbar=("ci", 95),
     ec="w",

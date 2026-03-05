@@ -21,6 +21,7 @@ mutations = pd.read_csv(snakemake.input.mutations, dtype={"sample_id": str, "pat
 
 mutations["generation"] = mutations["sample_id"].apply(lambda s: "G4A" if s.startswith("2000") else "G4B" if s.startswith("2001") else "G3")
 
+
 # get sample IDs so we can filter the denominator files
 sample_ids = mutations["sample_id"].unique()
 # map alternate (NAXXXX) IDs to original (2189) IDs
