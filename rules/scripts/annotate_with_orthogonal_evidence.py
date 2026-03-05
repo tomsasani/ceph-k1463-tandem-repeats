@@ -8,6 +8,7 @@ from typing import List, Tuple, Union
 import math
 
 from schema import ValidationSchema
+from snakemake.script import snakemake
 
 
 MATCH, INS, DEL = range(3)
@@ -106,7 +107,7 @@ def get_read_diff(
     read: pysam.AlignedSegment,
     start: int,
     end: int,
-    min_mapq: int = 60,
+    min_mapq: int = 20,
     slop: int = 1,
 ) -> Union[None, int]:
     """compare a single sequencing read and to the reference. then,
@@ -181,7 +182,6 @@ def extract_diffs_from_bam(
                 slop=math.floor(0.1 * (end - start)),
                 min_mapq=min_mapq,
             )
-
             if diff is None:
                 continue
             else:

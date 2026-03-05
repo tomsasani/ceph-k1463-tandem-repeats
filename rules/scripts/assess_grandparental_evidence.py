@@ -1,6 +1,7 @@
 import pandas as pd
 from cyvcf2 import VCF
 
+from snakemake.script import snakemake
 
 mutations = pd.read_csv(snakemake.input.mutations, sep="\t", dtype={"sample_id": str})
 

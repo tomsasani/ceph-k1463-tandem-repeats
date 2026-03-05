@@ -5,6 +5,7 @@ from trviz.main import TandemRepeatVizWorker
 from trviz.motif_aligner import MotifAligner
 from trviz.motif_encoder import MotifEncoder
 
+from snakemake.script import snakemake
 
 recurrent = pd.read_csv(snakemake.input.recurrent_dnms, sep="\t")
 recurrent = recurrent[recurrent["trid"] == snakemake.wildcards.TRID]

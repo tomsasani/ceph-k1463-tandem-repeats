@@ -2,18 +2,20 @@ from cyvcf2 import VCF
 import pandas as pd
 import numpy as np
 
+from snakemake.script import snakemake
+
 recurrent = pd.read_csv(snakemake.input.recurrent_dnms, sep="\t")
 recurrent = recurrent[recurrent["trid"] == snakemake.wildcards.TRID]
 
 # figure out which haplotype has the DNM if this is a kid
 denovo_gt = None
-if snakemake.params.sample_dnms is not None:
-    sample_dnms = pd.read_csv(snakemake.params.sample_dnms, sep="\t")
+if snakemake.params.use_dnms:
+    sample_dnms = pd.read_csv(snakemake.input.sample_dnms, sep="\t")
     dnms = sample_dnms[sample_dnms["trid"] == snakemake.wildcards.TRID]
     # get index with de novo
     denovo_gt = dnms["genotype"].values
 
-vcf = VCF(snakemake.params.sample_vcf, gts012=True)
+vcf = VCF(snakemake.input.sample_vcf, gts012=True)
 
 outfh = open(snakemake.output.fasta, "w")
 

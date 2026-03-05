@@ -3,11 +3,26 @@ from cyvcf2 import VCF
 import pandas as pd
 import tqdm
 
+from snakemake.script import snakemake
+
 if snakemake.wildcards.KIND == "denovo":
     mutations = pd.read_csv(snakemake.input.denovos, sep="\t")
 else:
     denovos = pd.read_csv(snakemake.input.denovos, sep="\t")
-    mutations = pd.read_csv(snakemake.input.catalog, sep="\t", names=["#chrom", "start", "end", "info"]).drop_duplicates().sample(frac=0.005, replace=False, random_state=42)
+    mutations = (
+        pd.read_csv(
+            snakemake.input.catalog,
+            sep="\t",
+            names=[
+                "#chrom",
+                "start",
+                "end",
+                "info",
+            ],
+        )
+        .drop_duplicates()
+        .sample(frac=0.005, replace=False, random_state=42)
+    )
     mutations["min_motiflen"] = mutations["info"].apply(lambda info: min([len(x) for x in info.split(";")[1].split("=")[1].split(",")]))
     mutations["trid"] = mutations["info"].apply(lambda info: info.split(";")[0].split("=")[1])
     mutations = mutations[~mutations["trid"].isin(denovos["trid"].to_list())]
@@ -21,7 +36,8 @@ res = []
 for i,row in tqdm.tqdm(mutations.iterrows()):
     chrom, start, end = row["#chrom"], row["start"], row["end"]
     row_dict = row.to_dict()
-    for v in vcf(f"{chrom}:{start}-{end}"):
+    for i, v in enumerate(vcf(f"{chrom}:{start}-{end}")):
+        if i > 0: continue
         try:
             hap_a, hap_b, is_phased = v.genotypes[0]
         except: continue

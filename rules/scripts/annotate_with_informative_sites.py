@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 from schema import TRGTDeNovoSchema
 import seaborn as sns
 
+from snakemake.script import snakemake
+
 
 plt.rc("font", size=12)
 plt.rcParams["font.family"] = "sans-serif"
@@ -38,7 +40,7 @@ def var_pass(
     if v.FILTER not in ("PASS", None): return False
     # if the PF tag is set to TR_OVERLAP, then the SNV
     # overlaps a TR and shouldn't be use
-
+    if v.INFO.get("PF") is not None: return False
     # remove multi-allelic variants
     if len(v.ALT) > 1: return False
     
@@ -354,16 +356,6 @@ def main():
 
             # sort those matching sites by their absolute distance to the STR
             str_midpoint = (trid_end + trid_start) // 2
-
-            # f, ax = plot_phasing(matching_inf_sites)
-            # ax.scatter(str_midpoint / 1e6, 0 if denovo_hap_id == "A" else 1, c="k", marker="s", s=100, ec="w")
-            # sns.despine(ax=ax)
-            # ax.set_ylabel("Haplotype in child")
-            # ax.set_xlabel("Position of informative site (Mbp)")
-            # f.tight_layout()
-
-            # f.savefig(f"fig/{trid}.png", dpi=200)
-            # plt.close()
 
             matching_inf_sites["diff_to_str"] = matching_inf_sites["inf_pos"] - str_midpoint
             matching_inf_sites["abs_diff_to_str"] = matching_inf_sites[

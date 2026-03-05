@@ -5,6 +5,8 @@ import tqdm
 import argparse
 from collections import namedtuple
 
+from snakemake.script import snakemake
+
 from schema import InformativeSiteSchema
 import utils
 

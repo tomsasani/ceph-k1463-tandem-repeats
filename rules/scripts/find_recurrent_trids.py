@@ -50,6 +50,10 @@ dfs = pd.concat(dfs)
 samples_with_denovo = dfs.groupby("trid").agg(samples_with_denovo=("sample_id", lambda s: ",".join(s))).reset_index()
 dfs = dfs.merge(samples_with_denovo)
 
+# remove recurrents where one sample has multiple dnms
+dfs["uniq_smp"] = dfs["samples_with_denovo"].apply(lambda s: len(set(s.split(","))))
+# dfs = dfs[dfs["uniq_smp"] > 1]
+
 dfs["generation"] = dfs["sample_id"].apply(lambda s: "G4" if s.startswith("200") else "G2" if s in ("2209", "2188") else "G3")
 
 # figure out which TRIDs are observed as DNs
@@ -87,6 +91,7 @@ for i, row in dfs.iterrows():
     n_suff_dp = 0
     for vcf in vcfs:
         for v in vcf(region):
+            if v.INFO.get("TRID") != trid: continue
             assert v.INFO.get("TRID") == trid
             gts = v.gt_types
             dp = np.sum(v.format("SD"))
@@ -105,14 +110,6 @@ for i, row in dfs.iterrows():
 
 res_df = pd.DataFrame(res)
 
-
-# print (dfs.shape)
-print (len(ORIG))
-for o in ORIG:
-    if res_df[res_df["trid"] == o].shape[0] == 0:
-        print (o)
-print (res_df[res_df["trid"].isin(ORIG)].shape)
-
 res_df[
     [
         "trid",
@@ -124,5 +121,7 @@ res_df[
         "child_AL",
         "samples_with_denovo",
         "sufficient_cohort_depth",
+        "inter",
+        "intra",
     ]
 ].drop_duplicates("trid").to_csv(snakemake.output.out, index=False, sep="\t")
