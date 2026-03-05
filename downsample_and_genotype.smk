@@ -85,7 +85,7 @@ MOM_TARGETS = [50, 50, 50, 30, 10]
 rule all:
     input:
         expand("downsampling/csv/filtered_and_merged/{SAMPLE}.{ASSEMBLY}.{KID_TARGET}.{MOM_TARGET}.{DAD_TARGET}.tsv", zip, 
-            SAMPLE = ["2212"] * len(KID_TARGETS), 
+            SAMPLE = ["2217"] * len(KID_TARGETS), 
             ASSEMBLY = ["CHM13v2"] * len(KID_TARGETS), 
             KID_TARGET=KID_TARGETS,
             MOM_TARGET=MOM_TARGETS, 
@@ -414,8 +414,8 @@ rule run_trgt_denovo:
     resources:
         mem_mb = 32_000,
         runtime = 720,
-        slurm_account = "ucgd-rw",
-        slurm_partition = "ucgd-rw"
+        slurm_account = "quinlan-rw",
+        slurm_partition = "quinlan-rw"
     params:
         output_dir = lambda wildcards: f"downsampling_tmpdir/{wildcards.SAMPLE}.{wildcards.ASSEMBLY}.{wildcards.KID_TARGET}.{wildcards.MOM_TARGET}.{wildcards.DAD_TARGET}.{wildcards.CHROM}",
         kid_pref = lambda wildcards: f"downsampling/data/trgt/per-chrom/{wildcards.SAMPLE}.{wildcards.ASSEMBLY}.kid.{wildcards.KID_TARGET}.{wildcards.CHROM}",
